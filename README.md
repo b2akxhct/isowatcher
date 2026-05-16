@@ -26,21 +26,7 @@ Docker installé sur ton hôte Proxmox ou un LXC Docker :
 curl -fsSL https://get.docker.com | sh
 ```
 
-### 2. Monter le partage NAS (NFS)
-
-Sur le host Proxmox, ajoute dans `/etc/fstab` :
-
-```
-192.168.1.X:/volume1/isos  /mnt/nas/isos  nfs  defaults,_netdev  0  0
-```
-
-Puis monte :
-
-```bash
-mkdir -p /mnt/nas/isos
-mount -a
-```
-
+### 2.
 ### 3. Cloner et démarrer
 
 ```bash
