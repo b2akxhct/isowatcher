@@ -38,7 +38,6 @@ download_progress = {}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Module rg-adguard
-# Structure : /version/{uuid} → /language/{uuid} → /files/{uuid} → /file/{uuid}
 # ─────────────────────────────────────────────────────────────────────────────
 
 RG_BASE = "https://files.rg-adguard.net"
@@ -175,11 +174,9 @@ async def rg_get_direct_download_url(file_uuid: str) -> Optional[str]:
         async with httpx.AsyncClient(timeout=20, follow_redirects=True,
                                       headers={"User-Agent": "ISOWatcher/1.1"}) as client:
             r = await client.get(url)
-            # Lien direct vers .iso sur serveurs Microsoft/Akamai
             ms = re.search(r'href=["\']((https?://[^"\']+\.iso))["\']', r.text, re.IGNORECASE)
             if ms:
                 return ms.group(2)
-            # Lien de téléchargement rg-adguard
             dl = re.search(r'href=["\']((https?://files\.rg-adguard\.net/download/[^"\']+))', r.text)
             if dl:
                 return dl.group(2)
@@ -218,92 +215,103 @@ async def rg_resolve_latest(slug: str) -> Optional[dict]:
         "lang": lang_label,
     }
 
-# ─── Database ───────────────────────────────────────────────────────────────
+# ─── Database (Modifié pour CIFS/Autofs) ────────────────────────────────────
 
 def get_db():
-    conn = sqlite3.connect(str(DB_PATH))
+    # Augmenté à 30s pour tolérer la lenteur du montage réseau
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
+    logger.info("Initialisation de la base de données (Optimisation CIFS)...")
     conn = get_db()
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS distros (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            slug TEXT UNIQUE NOT NULL,
-            type TEXT NOT NULL DEFAULT 'linux',
-            source TEXT DEFAULT 'direct',
-            check_url TEXT,
-            download_url_template TEXT,
-            version_pattern TEXT,
-            arch TEXT DEFAULT 'amd64',
-            enabled INTEGER DEFAULT 1,
-            latest_version TEXT,
-            last_checked TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+    try:
+        # Désactive WAL qui est incompatible avec les partages réseau
+        conn.execute("PRAGMA journal_mode=DELETE;")
+        conn.execute("PRAGMA busy_timeout=30000;")
+        
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS distros (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT UNIQUE NOT NULL,
+                type TEXT NOT NULL DEFAULT 'linux',
+                source TEXT DEFAULT 'direct',
+                check_url TEXT,
+                download_url_template TEXT,
+                version_pattern TEXT,
+                arch TEXT DEFAULT 'amd64',
+                enabled INTEGER DEFAULT 1,
+                latest_version TEXT,
+                last_checked TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
 
-        CREATE TABLE IF NOT EXISTS iso_library (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            distro_id INTEGER REFERENCES distros(id),
-            version TEXT NOT NULL,
-            arch TEXT,
-            filename TEXT NOT NULL,
-            filepath TEXT NOT NULL,
-            size_bytes INTEGER,
-            checksum_sha256 TEXT,
-            checksum_md5 TEXT,
-            download_url TEXT,
-            source TEXT DEFAULT 'direct',
-            downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status TEXT DEFAULT 'complete'
-        );
+            CREATE TABLE IF NOT EXISTS iso_library (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                distro_id INTEGER REFERENCES distros(id),
+                version TEXT NOT NULL,
+                arch TEXT,
+                filename TEXT NOT NULL,
+                filepath TEXT NOT NULL,
+                size_bytes INTEGER,
+                checksum_sha256 TEXT,
+                checksum_md5 TEXT,
+                download_url TEXT,
+                source TEXT DEFAULT 'direct',
+                downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'complete'
+            );
 
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS download_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            distro_id INTEGER,
-            version TEXT,
-            status TEXT,
-            message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+            CREATE TABLE IF NOT EXISTS download_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                distro_id INTEGER,
+                version TEXT,
+                status TEXT,
+                message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
 
-        INSERT OR IGNORE INTO settings VALUES ('schedule_hour', '3');
-        INSERT OR IGNORE INTO settings VALUES ('schedule_minute', '0');
-        INSERT OR IGNORE INTO settings VALUES ('schedule_days', 'mon');
-        INSERT OR IGNORE INTO settings VALUES ('discord_webhook', '');
-        INSERT OR IGNORE INTO settings VALUES ('check_frequency', 'weekly');
-    """)
-    conn.commit()
+            INSERT OR IGNORE INTO settings VALUES ('schedule_hour', '3');
+            INSERT OR IGNORE INTO settings VALUES ('schedule_minute', '0');
+            INSERT OR IGNORE INTO settings VALUES ('schedule_days', 'mon');
+            INSERT OR IGNORE INTO settings VALUES ('discord_webhook', '');
+            INSERT OR IGNORE INTO settings VALUES ('check_frequency', 'weekly');
+        """)
+        conn.commit()
 
-    distros = [
-        ("Ubuntu LTS",        "ubuntu-lts",          "linux",   "direct",
-         "https://changelogs.ubuntu.com/meta-release-lts",
-         "https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-amd64.iso",
-         r"Version:\s+(\d+\.\d+)"),
-        ("Debian Stable",     "debian-stable",        "linux",   "direct",
-         "https://deb.debian.org/debian/dists/stable/Release",
-         "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-{version}-amd64-netinst.iso",
-         r"Version:\s+(\d+\.\d+)"),
-        ("Windows Server 2025","windows-server-2025", "windows", "rg-adguard", None, None, None),
-        ("Windows Server 2022","windows-server-2022", "windows", "rg-adguard", None, None, None),
-        ("Windows Server 2019","windows-server-2019", "windows", "rg-adguard", None, None, None),
-        ("Windows 11",         "windows-11",          "windows", "rg-adguard", None, None, None),
-    ]
-    for d in distros:
-        conn.execute("""
-            INSERT OR IGNORE INTO distros
-              (name, slug, type, source, check_url, download_url_template, version_pattern)
-            VALUES (?,?,?,?,?,?,?)
-        """, d)
-    conn.commit()
-    conn.close()
+        distros = [
+            ("Ubuntu LTS",        "ubuntu-lts",          "linux",   "direct",
+             "https://changelogs.ubuntu.com/meta-release-lts",
+             "https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-amd64.iso",
+             r"Version:\s+(\d+\.\d+)"),
+            ("Debian Stable",     "debian-stable",        "linux",   "direct",
+             "https://deb.debian.org/debian/dists/stable/Release",
+             "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-{version}-amd64-netinst.iso",
+             r"Version:\s+(\d+\.\d+)"),
+            ("Windows Server 2025","windows-server-2025", "windows", "rg-adguard", None, None, None),
+            ("Windows Server 2022","windows-server-2022", "windows", "rg-adguard", None, None, None),
+            ("Windows Server 2019","windows-server-2019", "windows", "rg-adguard", None, None, None),
+            ("Windows 11",         "windows-11",          "windows", "rg-adguard", None, None, None),
+        ]
+        for d in distros:
+            conn.execute("""
+                INSERT OR IGNORE INTO distros
+                  (name, slug, type, source, check_url, download_url_template, version_pattern)
+                VALUES (?,?,?,?,?,?,?)
+            """, d)
+        conn.commit()
+        logger.info("Base de données initialisée avec succès.")
+    except Exception as e:
+        logger.error(f"Erreur d'initialisation (Probablement un verrou CIFS) : {e}")
+    finally:
+        conn.close()
 
 # ─── Version checkers ────────────────────────────────────────────────────────
 
@@ -793,13 +801,18 @@ async def list_rg_sources():
 
 @app.on_event("startup")
 async def startup():
+    logger.info("Lancement du startup...")
     init_db()
     conn = get_db()
-    settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
-    conn.close()
-    setup_scheduler(int(settings.get("schedule_hour", 3)),
-                    int(settings.get("schedule_minute", 0)),
-                    settings.get("schedule_days", "mon"))
-    if not scheduler.running:
-        scheduler.start()
-    logger.info("ISOWatcher v1.1 démarré — rg-adguard intégré")
+    try:
+        settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
+        setup_scheduler(int(settings.get("schedule_hour", 3)),
+                        int(settings.get("schedule_minute", 0)),
+                        settings.get("schedule_days", "mon"))
+        if not scheduler.running:
+            scheduler.start()
+        logger.info("ISOWatcher v1.1 démarré — rg-adguard intégré")
+    except Exception as e:
+        logger.error(f"Erreur fatale lors du démarrage : {e}")
+    finally:
+        conn.close()
