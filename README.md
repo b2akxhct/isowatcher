@@ -30,7 +30,7 @@ curl -fsSL https://get.docker.com | sh
 ### 3. Cloner et démarrer
 
 ```bash
-git clone https://github.com/TON_REPO/isowatcher
+git clone https://github.com/b2akxhct/isowatcher
 cd isowatcher
 
 # Adapter le chemin du volume dans docker-compose.yml
