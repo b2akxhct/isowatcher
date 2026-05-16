@@ -1,0 +1,36 @@
+services:
+  isowatcher:
+    build: .
+    container_name: isowatcher
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Base de données persistante
+      - ./data:/data
+      # Dossier ISO — pointe vers ton partage NAS monté sur Proxmox
+      # Exemple NFS monté : /mnt/nas/isos
+      # Remplace le chemin ci-dessous par ton point de montage réel
+      - /mnt/nas/isos:/data/isos
+    environment:
+      - DATA_DIR=/data
+      - TZ=Europe/Paris
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/stats"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+# ─── Notes de déploiement sur Proxmox ────────────────────────────────────────
+# 1. Monter ton NAS sur Proxmox (NFS exemple) :
+#    Dans /etc/fstab du host Proxmox :
+#    192.168.1.x:/volume1/isos /mnt/nas/isos nfs defaults,_netdev 0 0
+#
+# 2. Adapter le volume ci-dessus avec ton chemin réel
+#
+# 3. Lancer :
+#    docker compose up -d
+#
+# 4. Accéder à l'interface :
+#    http://IP_PROXMOX:8080
