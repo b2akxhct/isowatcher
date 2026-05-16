@@ -4,506 +4,431 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ISOWatcher</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0c10;
-    --surface: #111318;
-    --surface2: #181c24;
-    --border: #1e2530;
-    --accent: #00d4ff;
-    --accent2: #7c3aed;
-    --green: #00e676;
-    --red: #ff3d71;
-    --yellow: #ffd600;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --font-mono: 'JetBrains Mono', monospace;
-    --font-display: 'Syne', sans-serif;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; overflow-x: hidden; }
-
-  /* Ambient background */
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0,212,255,.07) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(124,58,237,.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  /* Layout */
-  .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
-
-  /* Sidebar */
-  .sidebar {
-    width: 220px; flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    position: sticky; top: 0; height: 100vh;
-  }
-  .logo {
-    padding: 28px 24px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-  .logo-mark {
-    font-family: var(--font-display);
-    font-size: 20px; font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--text);
-  }
-  .logo-mark span { color: var(--accent); }
-  .logo-sub { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 2px; text-transform: uppercase; }
-
-  nav { padding: 16px 12px; flex: 1; }
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 8px;
-    cursor: pointer; font-size: 13px; font-weight: 500;
-    color: var(--muted); transition: all .2s;
-    margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left;
-  }
-  .nav-item:hover { color: var(--text); background: var(--surface2); }
-  .nav-item.active { color: var(--accent); background: rgba(0,212,255,.08); }
-  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
-
-  .sidebar-footer {
-    padding: 16px;
-    border-top: 1px solid var(--border);
-  }
-  .status-dot {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 11px; color: var(--muted);
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-
-  /* Main */
-  .main { flex: 1; padding: 32px; overflow-y: auto; }
-
-  /* Pages */
-  .page { display: none; }
-  .page.active { display: block; }
-
-  /* Header */
-  .page-header { margin-bottom: 28px; }
-  .page-title {
-    font-family: var(--font-display);
-    font-size: 28px; font-weight: 800;
-    letter-spacing: -1px; color: var(--text);
-  }
-  .page-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: .5px; }
-
-  /* Stats bar */
-  .stats-bar {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 16px; margin-bottom: 28px;
-  }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px;
-    position: relative; overflow: hidden;
-  }
-  .stat-card::after {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), transparent);
-  }
-  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
-  .stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--text); margin-top: 6px; }
-  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  /* Cards */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px;
-    margin-bottom: 20px;
-  }
-  .card-title {
-    font-family: var(--font-display);
-    font-size: 14px; font-weight: 700;
-    letter-spacing: .5px; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 8px;
-  }
-
-  /* Table */
-  table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  td { padding: 12px 12px; border-bottom: 1px solid rgba(30,37,48,.5); font-size: 13px; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,.02); }
-
-  /* Badges */
-  .badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 8px; border-radius: 4px;
-    font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
-  }
-  .badge-linux { background: rgba(0,230,118,.1); color: var(--green); }
-  .badge-windows { background: rgba(0,120,212,.1); color: #0078d4; }
-  .badge-enabled { background: rgba(0,212,255,.1); color: var(--accent); }
-  .badge-disabled { background: rgba(100,116,139,.1); color: var(--muted); }
-  .badge-rg { background: rgba(124,58,237,.15); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
-  .badge-direct { background: rgba(0,230,118,.08); color: var(--green); }
-  .badge-manual { background: rgba(255,214,0,.1); color: var(--yellow); }
-  .badge-warning { background: rgba(255,214,0,.1); color: var(--yellow); }
-  .rg-info { background: rgba(124,58,237,.07); border: 1px solid rgba(124,58,237,.2); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 12px; }
-  .rg-info strong { color: #a78bfa; }
-
-  /* Buttons */
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px;
-    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-    cursor: pointer; border: none; transition: all .2s;
-  }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-primary:hover { background: #33ddff; transform: translateY(-1px); }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-danger { background: rgba(255,61,113,.1); color: var(--red); border: 1px solid rgba(255,61,113,.2); }
-  .btn-danger:hover { background: rgba(255,61,113,.2); }
-  .btn-sm { padding: 5px 10px; font-size: 11px; }
-  .btn-icon { padding: 6px; border-radius: 6px; }
-
-  /* Progress bar */
-  .progress-wrap { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 6px; }
-  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .5s; }
-
-  /* Forms */
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .form-group { display: flex; flex-direction: column; gap: 6px; }
-  .form-group.full { grid-column: 1 / -1; }
-  label { font-size: 11px; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
-  input, select, textarea {
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px;
-    padding: 10px 12px; font-family: var(--font-mono); font-size: 13px;
-    transition: border-color .2s; outline: none;
-  }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-  textarea { resize: vertical; min-height: 80px; }
-
-  /* Modal */
-  .modal-overlay {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
-    display: none; align-items: center; justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 32px; width: 560px; max-width: 95vw;
-    animation: slideIn .2s ease;
-  }
-  @keyframes slideIn { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
-  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-  .modal-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
-  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 4px; }
-  .modal-close:hover { color: var(--text); }
-  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-
-  /* Downloads in progress */
-  .download-item {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 16px; margin-bottom: 10px;
-  }
-  .download-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .download-name { font-size: 13px; font-weight: 600; }
-  .download-meta { font-size: 11px; color: var(--muted); }
-
-  /* Log entries */
-  .log-entry {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 0; border-bottom: 1px solid rgba(30,37,48,.5);
-    font-size: 12px;
-  }
-  .log-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .log-status.success { background: var(--green); }
-  .log-status.error { background: var(--red); }
-  .log-time { color: var(--muted); width: 140px; flex-shrink: 0; }
-  .log-msg { flex: 1; }
-
-  /* Empty state */
-  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
-  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .3; }
-  .empty-text { font-size: 13px; }
-
-  /* Toast */
-  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
-  .toast {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 18px;
-    font-size: 13px; min-width: 260px;
-    animation: toastIn .3s ease;
-    display: flex; align-items: center; gap: 10px;
-  }
-  @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
-  .toast.success { border-color: rgba(0,230,118,.3); }
-  .toast.error { border-color: rgba(255,61,113,.3); }
-
-  /* Schedule display */
-  .schedule-info {
-    background: var(--surface2); border-radius: 8px;
-    padding: 12px 16px; font-size: 12px; color: var(--muted);
-    border-left: 3px solid var(--accent);
-    margin-bottom: 20px;
-  }
-  .schedule-info strong { color: var(--text); }
-
-  /* Action bar */
-  .action-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
-  .spacer { flex: 1; }
-
-  /* Chip */
-  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--surface2); border-radius: 20px; font-size: 11px; color: var(--muted); }
-
-  /* Version tag */
-  .version-tag { font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: rgba(0,212,255,.08); padding: 2px 8px; border-radius: 4px; }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+:root{--bg:#0a0c10;--surface:#111318;--surface2:#181c24;--border:#1e2530;--accent:#00d4ff;--accent2:#7c3aed;--green:#00e676;--red:#ff3d71;--yellow:#ffd600;--text:#e2e8f0;--muted:#64748b;--mono:'JetBrains Mono',monospace;--display:'Syne',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 50% at 20% -10%,rgba(0,212,255,.07) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 110%,rgba(124,58,237,.06) 0%,transparent 60%);pointer-events:none}
+.layout{display:flex;min-height:100vh;position:relative;z-index:1}
+/* Sidebar */
+.sidebar{width:230px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.5px}
+.logo-mark span{color:var(--accent)}
+.logo-sub{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:2px;text-transform:uppercase}
+nav{padding:16px 12px;flex:1;overflow-y:auto}
+.nav-section{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:8px 12px 4px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);transition:all .2s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{color:var(--text);background:var(--surface2)}
+.nav-item.active{color:var(--accent);background:rgba(0,212,255,.08)}
+.nav-item .icon{font-size:15px;width:20px;text-align:center}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.status-dot{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.version-badge{font-size:9px;background:rgba(0,212,255,.1);color:var(--accent);padding:2px 6px;border-radius:3px;margin-left:auto}
+/* Main */
+.main{flex:1;padding:32px;overflow-y:auto;max-width:calc(100vw - 230px)}
+.page{display:none}
+.page.active{display:block}
+/* Header */
+.page-header{margin-bottom:28px;display:flex;align-items:flex-start;justify-content:space-between}
+.page-title-wrap{}
+.page-title{font-family:var(--display);font-size:26px;font-weight:800;letter-spacing:-1px}
+.page-subtitle{font-size:12px;color:var(--muted);margin-top:4px}
+/* Stats */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
+.stat-value{font-family:var(--display);font-size:30px;font-weight:800;margin-top:6px}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:var(--display);font-size:14px;font-weight:700;letter-spacing:.5px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+/* Tables */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid rgba(30,37,48,.5);font-size:12px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.badge-linux{background:rgba(0,230,118,.1);color:var(--green)}
+.badge-windows{background:rgba(0,120,212,.1);color:#0078d4}
+.badge-enabled{background:rgba(0,212,255,.1);color:var(--accent)}
+.badge-disabled{background:rgba(100,116,139,.1);color:var(--muted)}
+.badge-rg{background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.25)}
+.badge-direct{background:rgba(0,230,118,.08);color:var(--green)}
+.badge-archive{background:rgba(255,214,0,.1);color:var(--yellow)}
+.badge-manual{background:rgba(255,214,0,.1);color:var(--yellow)}
+.badge-warning{background:rgba(255,214,0,.1);color:var(--yellow)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:#33ddff;transform:translateY(-1px)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(255,61,113,.1);color:var(--red);border:1px solid rgba(255,61,113,.2)}
+.btn-danger:hover{background:rgba(255,61,113,.2)}
+.btn-warning{background:rgba(255,214,0,.1);color:var(--yellow);border:1px solid rgba(255,214,0,.2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+/* Progress */
+.progress-wrap{background:var(--bg);border-radius:4px;height:6px;overflow:hidden;margin-top:6px}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .5s}
+/* Forms */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group.full{grid-column:1/-1}
+label{font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+input,select,textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;transition:border-color .2s;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:slideIn .2s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-title{font-family:var(--display);font-size:18px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px}
+.modal-close:hover{color:var(--text)}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+/* Download items */
+.download-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px}
+.download-info{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+/* Logs */
+.log-entry{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(30,37,48,.5);font-size:12px}
+.log-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.log-status.success{background:var(--green)}
+.log-status.error{background:var(--red)}
+.log-status.warning{background:var(--yellow)}
+.log-status.info{background:var(--accent)}
+.log-time{color:var(--muted);width:130px;flex-shrink:0;font-size:11px}
+.log-msg{flex:1;line-height:1.5}
+/* Version tag */
+.version-tag{font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(0,212,255,.08);padding:2px 7px;border-radius:4px}
+/* Empty */
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.3}
+.empty-text{font-size:13px}
+/* Toast */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:13px;min-width:260px;animation:toastIn .3s ease;display:flex;align-items:center;gap:10px}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{border-color:rgba(0,230,118,.3)}
+.toast.error{border-color:rgba(255,61,113,.3)}
+.toast.info{border-color:rgba(0,212,255,.3)}
+/* Schedule info */
+.schedule-info{background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);border-left:3px solid var(--accent);margin-bottom:20px}
+.schedule-info strong{color:var(--text)}
+/* Action bar */
+.action-bar{display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+/* Chips */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--surface2);border-radius:20px;font-size:11px;color:var(--muted)}
+/* Info box */
+.info-box{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:10px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.7;color:var(--muted)}
+.info-box strong{color:var(--accent)}
+.info-box code{background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;color:var(--text)}
+/* Tuto */
+.tuto-step{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;position:relative}
+.tuto-step-num{position:absolute;top:-12px;left:20px;background:var(--accent);color:#000;font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px;font-family:var(--display)}
+.tuto-step h3{font-family:var(--display);font-size:15px;font-weight:700;margin-bottom:12px;margin-top:4px}
+.tuto-step p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px}
+.tuto-step pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;overflow-x:auto;margin:10px 0;line-height:1.6}
+.tuto-step table{margin-top:10px}
+.tuto-step table th{font-size:10px}
+.tuto-step table td{font-size:12px;color:var(--muted)}
+.tuto-step table td:first-child{color:var(--text);font-weight:600}
+/* Archive grid */
+.archive-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:16px}
+.archive-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all .2s;text-align:center}
+.archive-card:hover{border-color:var(--accent);background:rgba(0,212,255,.05)}
+.archive-card .av{font-family:var(--display);font-size:15px;font-weight:700;color:var(--text)}
+.archive-card .as{font-size:11px;color:var(--muted);margin-top:4px}
+/* Rg info */
+.rg-info{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px}
+.rg-info strong{color:#a78bfa}
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+/* Two col layout */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}.stats-bar{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
-
 <div class="layout">
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="logo">
-      <div class="logo-mark">ISO<span>Watcher</span></div>
-      <div class="logo-sub">Library Manager</div>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">ISO<span>Watcher</span></div>
+    <div class="logo-sub">Library Manager</div>
+  </div>
+  <nav>
+    <div class="nav-section">Principal</div>
+    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="icon">⬡</span>Dashboard</button>
+    <button class="nav-item" onclick="showPage('distros')"   id="nav-distros"><span class="icon">◈</span>Distributions</button>
+    <button class="nav-item" onclick="showPage('library')"   id="nav-library"><span class="icon">▦</span>Bibliothèque</button>
+    <div class="nav-section">Téléchargements</div>
+    <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><span class="icon">⬇</span>En cours</button>
+    <button class="nav-item" onclick="showPage('archive')"   id="nav-archive"><span class="icon">◫</span>Archives FTP</button>
+    <div class="nav-section">Outils</div>
+    <button class="nav-item" onclick="showPage('tuto')"      id="nav-tuto"><span class="icon">◷</span>Guide d'ajout</button>
+    <button class="nav-item" onclick="showPage('logs')"      id="nav-logs"><span class="icon">≡</span>Logs</button>
+    <button class="nav-item" onclick="showPage('settings')"  id="nav-settings"><span class="icon">⚙</span>Paramètres</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="status-dot"><div class="dot"></div>Scheduler actif<span class="version-badge">v1.2</span></div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+<!-- ─── DASHBOARD ─── -->
+<div class="page active" id="page-dashboard">
+  <div class="page-header">
+    <div class="page-title-wrap">
+      <div class="page-title">Dashboard</div>
+      <div class="page-subtitle">Vue d'ensemble de votre bibliothèque ISO</div>
     </div>
-    <nav>
-      <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
-        <span class="icon">⬡</span> Dashboard
-      </button>
-      <button class="nav-item" onclick="showPage('distros')" id="nav-distros">
-        <span class="icon">◈</span> Distributions
-      </button>
-      <button class="nav-item" onclick="showPage('library')" id="nav-library">
-        <span class="icon">▦</span> Bibliothèque
-      </button>
-      <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads">
-        <span class="icon">⬇</span> Téléchargements
-      </button>
-      <button class="nav-item" onclick="showPage('logs')" id="nav-logs">
-        <span class="icon">≡</span> Logs
-      </button>
-      <button class="nav-item" onclick="showPage('settings')" id="nav-settings">
-        <span class="icon">⚙</span> Paramètres
-      </button>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="status-dot">
-        <div class="dot"></div>
-        Scheduler actif
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main content -->
-  <main class="main">
-
-    <!-- DASHBOARD -->
-    <div class="page active" id="page-dashboard">
-      <div class="page-header">
-        <div class="page-title">Dashboard</div>
-        <div class="page-subtitle">Vue d'ensemble de votre bibliothèque ISO</div>
-      </div>
-
-      <div class="stats-bar" id="stats-bar">
-        <div class="stat-card">
-          <div class="stat-label">ISOs stockées</div>
-          <div class="stat-value" id="stat-isos">—</div>
-          <div class="stat-sub">toutes versions</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Espace utilisé</div>
-          <div class="stat-value" id="stat-size">—</div>
-          <div class="stat-sub">gigaoctets</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Distros suivies</div>
-          <div class="stat-value" id="stat-distros">—</div>
-          <div class="stat-sub">actives</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">En cours</div>
-          <div class="stat-value" id="stat-active">—</div>
-          <div class="stat-sub">téléchargements</div>
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-        <div class="card">
-          <div class="card-title">⬇ Téléchargements actifs</div>
-          <div id="dash-downloads">
-            <div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement en cours</div></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">≡ Dernières activités</div>
-          <div id="dash-logs"></div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:0;">
-        <div class="card-title" style="justify-content:space-between;">
-          <span>◈ Distributions surveillées</span>
-          <button class="btn btn-primary btn-sm" onclick="triggerCheck()">↻ Vérifier maintenant</button>
-        </div>
-        <div id="dash-distros"></div>
-      </div>
-    </div>
-
-    <!-- DISTRIBUTIONS -->
-    <div class="page" id="page-distros">
-      <div class="page-header">
-        <div class="page-title">Distributions</div>
-        <div class="page-subtitle">Gérer les distributions surveillées</div>
-      </div>
-      <div class="action-bar">
-        <button class="btn btn-primary" onclick="openAddDistro()">+ Ajouter une distribution</button>
-        <span class="spacer"></span>
-        <button class="btn btn-secondary" onclick="triggerCheck()">↻ Vérifier toutes</button>
-      </div>
-      <div class="card" style="padding:0;">
-        <table>
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Type</th>
-              <th>Dernière version</th>
-              <th>Vérifié</th>
-              <th>ISO stockées</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="distros-table"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- LIBRARY -->
-    <div class="page" id="page-library">
-      <div class="page-header">
-        <div class="page-title">Bibliothèque ISO</div>
-        <div class="page-subtitle">Toutes les ISO téléchargées</div>
-      </div>
-      <div class="card" style="padding:0;">
-        <table>
-          <thead>
-            <tr>
-              <th>Distribution</th>
-              <th>Version</th>
-              <th>Fichier</th>
-              <th>Taille</th>
-              <th>Source</th>
-              <th>SHA-256</th>
-              <th>Téléchargé le</th>
-            </tr>
-          </thead>
-          <tbody id="library-table"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- DOWNLOADS -->
-    <div class="page" id="page-downloads">
-      <div class="page-header">
-        <div class="page-title">Téléchargements</div>
-        <div class="page-subtitle">Progression en temps réel</div>
-      </div>
-      <div id="downloads-list">
-        <div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement actif</div></div>
-      </div>
-    </div>
-
-    <!-- LOGS -->
-    <div class="page" id="page-logs">
-      <div class="page-header">
-        <div class="page-title">Logs</div>
-        <div class="page-subtitle">Historique des opérations</div>
-      </div>
-      <div class="card">
-        <div id="logs-list"></div>
-      </div>
-    </div>
-
-    <!-- SETTINGS -->
-    <div class="page" id="page-settings">
-      <div class="page-header">
-        <div class="page-title">Paramètres</div>
-        <div class="page-subtitle">Configuration du scheduler et des notifications</div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">⏱ Planification des vérifications</div>
-        <div id="current-schedule" class="schedule-info"></div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Fréquence</label>
-            <select id="schedule-freq" onchange="updateFreqUI()">
-              <option value="daily">Quotidienne</option>
-              <option value="weekly" selected>Hebdomadaire</option>
-              <option value="monthly">Mensuelle</option>
-              <option value="custom">Personnalisée</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Heure</label>
-            <input type="number" id="schedule-hour" min="0" max="23" value="3" placeholder="3">
-          </div>
-          <div class="form-group" id="day-group">
-            <label>Jour de la semaine</label>
-            <select id="schedule-days">
-              <option value="mon">Lundi</option>
-              <option value="tue">Mardi</option>
-              <option value="wed">Mercredi</option>
-              <option value="thu">Jeudi</option>
-              <option value="fri">Vendredi</option>
-              <option value="sat">Samedi</option>
-              <option value="sun">Dimanche</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Minute</label>
-            <input type="number" id="schedule-minute" min="0" max="59" value="0" placeholder="0">
-          </div>
-        </div>
-        <div style="margin-top:16px;">
-          <button class="btn btn-primary" onclick="saveSchedule()">Sauvegarder le planning</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">🔔 Notifications Discord</div>
-        <div class="form-grid">
-          <div class="form-group full">
-            <label>Webhook URL Discord</label>
-            <input type="text" id="discord-webhook" placeholder="https://discord.com/api/webhooks/...">
-          </div>
-        </div>
-        <div style="margin-top:16px; display:flex; gap:10px;">
-          <button class="btn btn-primary" onclick="saveDiscord()">Sauvegarder</button>
-          <button class="btn btn-secondary" onclick="testDiscord()">Tester le webhook</button>
-        </div>
-      </div>
-    </div>
-  </main>
+    <button class="btn btn-primary" onclick="triggerCheck()">↻ Vérifier maintenant</button>
+  </div>
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card"><div class="stat-label">ISOs stockées</div><div class="stat-value" id="stat-isos">—</div><div class="stat-sub">toutes versions</div></div>
+    <div class="stat-card"><div class="stat-label">Espace utilisé</div><div class="stat-value" id="stat-size">—</div><div class="stat-sub">gigaoctets</div></div>
+    <div class="stat-card"><div class="stat-label">Distros suivies</div><div class="stat-value" id="stat-distros">—</div><div class="stat-sub">actives</div></div>
+    <div class="stat-card"><div class="stat-label">En cours</div><div class="stat-value" id="stat-active">—</div><div class="stat-sub">téléchargements</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">⬇ Téléchargements actifs</div><div id="dash-downloads"></div></div>
+    <div class="card"><div class="card-title">≡ Dernières activités</div><div id="dash-logs"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">◈ Distributions surveillées</div>
+    <div id="dash-distros"></div>
+  </div>
 </div>
 
-<!-- Modal: Ajouter distro -->
+<!-- ─── DISTRIBUTIONS ─── -->
+<div class="page" id="page-distros">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Distributions</div><div class="page-subtitle">Gérer les distributions surveillées</div></div>
+  </div>
+  <div class="action-bar">
+    <button class="btn btn-primary" onclick="openAddDistro()">+ Ajouter</button>
+    <button class="btn btn-secondary" onclick="triggerCheck()">↻ Vérifier toutes</button>
+    <span class="spacer"></span>
+    <span style="font-size:11px;color:var(--muted);">Cliquez sur ✏ pour modifier une entrée</span>
+  </div>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Nom</th><th>Type</th><th>Source</th><th>Dernière version</th><th>Vérifié</th><th>ISO</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody id="distros-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── LIBRARY ─── -->
+<div class="page" id="page-library">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Bibliothèque ISO</div><div class="page-subtitle">Toutes les ISO téléchargées</div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Distribution</th><th>Version</th><th>Fichier</th><th>Taille</th><th>Source</th><th>SHA-256</th><th>Téléchargé le</th></tr></thead>
+      <tbody id="library-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── DOWNLOADS ─── -->
+<div class="page" id="page-downloads">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Téléchargements</div><div class="page-subtitle">Progression en temps réel</div></div>
+  </div>
+  <div id="downloads-list"></div>
+</div>
+
+<!-- ─── ARCHIVE ─── -->
+<div class="page" id="page-archive">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Archives FTP</div><div class="page-subtitle">Télécharger des versions historiques depuis les FTP officiels</div></div>
+  </div>
+  <div class="info-box">
+    <strong>ℹ Archives officielles</strong> — Ces liens pointent directement vers les FTP officiels des distributions.
+    Sélectionnez une distribution, choisissez la version souhaitée, et lancez le téléchargement.
+    Les ISOs seront stockées dans votre bibliothèque comme n'importe quelle autre ISO.
+  </div>
+  <div class="action-bar">
+    <button class="btn btn-secondary active-arch" data-key="debian"  onclick="loadArchive('debian')">Debian</button>
+    <button class="btn btn-secondary" data-key="ubuntu"  onclick="loadArchive('ubuntu')">Ubuntu</button>
+    <button class="btn btn-secondary" data-key="fedora"  onclick="loadArchive('fedora')">Fedora</button>
+    <button class="btn btn-secondary" data-key="arch"    onclick="loadArchive('arch')">Arch Linux</button>
+  </div>
+  <div class="card">
+    <div class="card-title" id="archive-title">Debian — Versions disponibles</div>
+    <div id="archive-ftp-link" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
+    <div id="archive-grid"></div>
+  </div>
+</div>
+
+<!-- ─── TUTO ─── -->
+<div class="page" id="page-tuto">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Guide d'ajout</div><div class="page-subtitle">Comment ajouter et configurer une nouvelle distribution</div></div>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">1</div>
+    <h3>Comprendre les deux types de source</h3>
+    <p>ISOWatcher supporte deux modes pour trouver et télécharger les ISOs :</p>
+    <table>
+      <thead><tr><th>Mode</th><th>Description</th><th>Quand l'utiliser</th></tr></thead>
+      <tbody>
+        <tr><td>Direct (URL)</td><td>Scraping d'une page + URL de téléchargement avec placeholder <code>{version}</code></td><td>Linux, BSD, tout OS avec FTP public</td></tr>
+        <tr><td>rg-adguard</td><td>Navigation automatique sur files.rg-adguard.net via UUID</td><td>Windows uniquement (Server, 10, 11)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">2</div>
+    <h3>Ajouter une distribution Linux (mode Direct)</h3>
+    <p>Pour chaque distribution, vous avez besoin de 3 informations :</p>
+    <table>
+      <thead><tr><th>Champ</th><th>Description</th><th>Exemple (Fedora)</th></tr></thead>
+      <tbody>
+        <tr><td>URL de vérification</td><td>Page contenant le numéro de version</td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/</code></td></tr>
+        <tr><td>Regex pattern</td><td>Expression pour extraire la version (groupe 1)</td><td><code>href="(\d{2})/?"</code></td></tr>
+        <tr><td>Template URL</td><td>URL de téléchargement avec <code>{version}</code></td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/{version}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}-1.1.iso</code></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;">Le placeholder <code>{version}</code> sera remplacé automatiquement par la version détectée.</p>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">3</div>
+    <h3>Exemples de configurations prêtes à l'emploi</h3>
+    <p><strong style="color:var(--green);">Linux Mint (dernière LTS)</strong></p>
+    <pre>URL vérif : https://linuxmint.com/download.php
+Regex     : href=".*?/linuxmint-(\d+\.\d+)-cinnamon-64bit\.iso"
+Template  : https://mirrors.edge.kernel.org/linuxmint/stable/{version}/linuxmint-{version}-cinnamon-64bit.iso</pre>
+
+    <p><strong style="color:var(--green);">Rocky Linux</strong></p>
+    <pre>URL vérif : https://dl.rockylinux.org/pub/rocky/
+Regex     : href="(\d+\.\d+)/?"
+Template  : https://dl.rockylinux.org/pub/rocky/{version}/isos/x86_64/Rocky-{version}-x86_64-minimal.iso</pre>
+
+    <p><strong style="color:var(--green);">AlmaLinux</strong></p>
+    <pre>URL vérif : https://repo.almalinux.org/almalinux/
+Regex     : href="(\d+\.\d+)/?"
+Template  : https://repo.almalinux.org/almalinux/{version}/isos/x86_64/AlmaLinux-{version}-x86_64-minimal.iso</pre>
+
+    <p><strong style="color:var(--green);">openSUSE Leap</strong></p>
+    <pre>URL vérif : https://download.opensuse.org/distribution/leap/
+Regex     : href="(\d+\.\d+)/?"
+Template  : https://download.opensuse.org/distribution/leap/{version}/iso/openSUSE-Leap-{version}-DVD-x86_64.iso</pre>
+
+    <p><strong style="color:var(--green);">Kali Linux</strong></p>
+    <pre>URL vérif : https://cdimage.kali.org/kali-weekly/
+Regex     : href="kali-linux-(\d{4}\.\d)-installer-amd64\.iso"
+Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-amd64.iso</pre>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">4</div>
+    <h3>Ajouter une source Windows (mode rg-adguard)</h3>
+    <p>Dans le formulaire d'ajout, sélectionnez <strong>Source : rg-adguard</strong>, puis choisissez le slug dans la liste :</p>
+    <table>
+      <thead><tr><th>Slug</th><th>Distribution</th></tr></thead>
+      <tbody>
+        <tr><td><code>windows-server-2025</code></td><td>Windows Server 2025</td></tr>
+        <tr><td><code>windows-server-2022</code></td><td>Windows Server 2022</td></tr>
+        <tr><td><code>windows-server-2019</code></td><td>Windows Server 2019</td></tr>
+        <tr><td><code>windows-11</code></td><td>Windows 11</td></tr>
+        <tr><td><code>windows-10</code></td><td>Windows 10</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;">Les checksums SHA-256 et MD5 sont récupérés et vérifiés automatiquement depuis la page rg-adguard.</p>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">5</div>
+    <h3>Tester votre configuration</h3>
+    <p>Après avoir ajouté une distribution :</p>
+    <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:2">
+      <li>Allez dans <strong style="color:var(--text);">Distributions</strong></li>
+      <li>Cliquez sur <strong style="color:var(--text);">⟳ Check</strong> sur votre nouvelle distro</li>
+      <li>Une notification indique la version détectée</li>
+      <li>Si la version est correcte, cliquez <strong style="color:var(--text);">↓ Manuel</strong> pour tester un téléchargement</li>
+      <li>Suivez la progression dans <strong style="color:var(--text);">En cours</strong></li>
+    </ol>
+  </div>
+
+  <div class="tuto-step">
+    <div class="tuto-step-num">6</div>
+    <h3>Trouver l'URL de téléchargement pour n'importe quelle distro</h3>
+    <p>Méthode universelle pour trouver les bonnes URLs :</p>
+    <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:2">
+      <li>Allez sur la page de téléchargement officielle de la distro</li>
+      <li>Clic droit sur le lien de téléchargement de l'ISO → <em>Copier l'adresse du lien</em></li>
+      <li>Repérez le numéro de version dans l'URL → c'est votre placeholder <code style="color:var(--accent)">{version}</code></li>
+      <li>Remplacez le numéro par <code style="color:var(--accent)">{version}</code> pour obtenir le template</li>
+      <li>Pour l'URL de vérification, prenez la page qui <em>liste</em> les versions (souvent le répertoire parent sur le FTP)</li>
+    </ol>
+    <p>Exemple : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">24.04</strong>-server.iso</code> → template : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">{version}</strong>-server.iso</code></p>
+  </div>
+</div>
+
+<!-- ─── LOGS ─── -->
+<div class="page" id="page-logs">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Logs</div><div class="page-subtitle">Historique des opérations</div></div>
+  </div>
+  <div class="card"><div id="logs-list"></div></div>
+</div>
+
+<!-- ─── SETTINGS ─── -->
+<div class="page" id="page-settings">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title">Paramètres</div><div class="page-subtitle">Scheduler et notifications</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⏱ Planification</div>
+    <div id="current-schedule" class="schedule-info"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Fréquence</label><select id="schedule-freq" onchange="updateFreqUI()"><option value="daily">Quotidienne</option><option value="weekly" selected>Hebdomadaire</option><option value="monthly">Mensuelle</option></select></div>
+      <div class="form-group"><label>Heure (0–23)</label><input type="number" id="schedule-hour" min="0" max="23" value="3"></div>
+      <div class="form-group" id="day-group"><label>Jour</label><select id="schedule-days"><option value="mon">Lundi</option><option value="tue">Mardi</option><option value="wed">Mercredi</option><option value="thu">Jeudi</option><option value="fri">Vendredi</option><option value="sat">Samedi</option><option value="sun">Dimanche</option></select></div>
+      <div class="form-group"><label>Minute (0–59)</label><input type="number" id="schedule-minute" min="0" max="59" value="0"></div>
+    </div>
+    <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveSchedule()">Sauvegarder</button></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🔔 Notifications Discord</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Webhook URL</label><input type="text" id="discord-webhook" placeholder="https://discord.com/api/webhooks/…"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveDiscord()">Sauvegarder</button>
+      <button class="btn btn-secondary" onclick="testDiscord()">🔔 Tester</button>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Modal: Ajouter distribution -->
 <div class="modal-overlay" id="modal-distro">
   <div class="modal">
     <div class="modal-header">
@@ -511,36 +436,14 @@
       <button class="modal-close" onclick="closeModal('modal-distro')">✕</button>
     </div>
     <div class="form-grid">
-      <div class="form-group">
-        <label>Nom affiché</label>
-        <input type="text" id="d-name" placeholder="ex: Fedora 41">
-      </div>
-      <div class="form-group">
-        <label>Slug (identifiant)</label>
-        <input type="text" id="d-slug" placeholder="ex: fedora-41">
-      </div>
-      <div class="form-group">
-        <label>Type</label>
-        <select id="d-type">
-          <option value="linux">Linux</option>
-          <option value="windows">Windows</option>
-          <option value="bsd">BSD</option>
-          <option value="other">Autre</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Source</label>
-        <select id="d-source" onchange="toggleSourceFields()">
-          <option value="direct">Direct (URL)</option>
-          <option value="rg-adguard">rg-adguard (Windows)</option>
-        </select>
-      </div>
-      <div id="rg-slug-group" class="form-group full" style="display:none;">
-        <div class="rg-info">
-          <strong>◈ Source rg-adguard</strong> — Sélectionnez le slug Windows correspondant.<br>
-          Les checksums et métadonnées seront récupérés automatiquement depuis files.rg-adguard.net
-        </div>
-        <label>Slug rg-adguard</label>
+      <div class="form-group"><label>Nom affiché</label><input type="text" id="d-name" placeholder="ex: Rocky Linux 9"></div>
+      <div class="form-group"><label>Slug (identifiant unique)</label><input type="text" id="d-slug" placeholder="ex: rocky-linux-9"></div>
+      <div class="form-group"><label>Type</label><select id="d-type"><option value="linux">Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other">Autre</option></select></div>
+      <div class="form-group"><label>Source</label><select id="d-source" onchange="toggleSourceFields()"><option value="direct">Direct (URL)</option><option value="rg-adguard">rg-adguard (Windows)</option></select></div>
+    </div>
+    <div id="rg-slug-group" style="display:none;margin-top:16px">
+      <div class="rg-info"><strong>◈ Source rg-adguard</strong> — Les checksums sont récupérés automatiquement.</div>
+      <div class="form-group"><label>OS Windows</label>
         <select id="d-rg-slug">
           <option value="windows-server-2025">Windows Server 2025</option>
           <option value="windows-server-2022">Windows Server 2022</option>
@@ -549,35 +452,43 @@
           <option value="windows-10">Windows 10</option>
         </select>
       </div>
-      <div id="direct-fields">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Architecture</label>
-            <select id="d-arch">
-              <option value="amd64">amd64 (x86_64)</option>
-              <option value="arm64">arm64</option>
-              <option value="i386">i386</option>
-            </select>
-          </div>
-          <div class="form-group full">
-            <label>URL de vérification de version</label>
-            <input type="text" id="d-check-url" placeholder="URL à scraper pour détecter la version">
-          </div>
-          <div class="form-group full">
-            <label>Regex pattern de version</label>
-            <input type="text" id="d-pattern" placeholder='ex: Version:\s+(\d+\.\d+)'>
-          </div>
-          <div class="form-group full">
-            <label>Template URL de téléchargement</label>
-            <input type="text" id="d-dl-url" placeholder="https://example.com/release/{version}/image.iso">
-            <span style="font-size:11px; color:var(--muted); margin-top:4px;">Utiliser {version} comme placeholder</span>
-          </div>
-        </div>
+    </div>
+    <div id="direct-fields" style="margin-top:16px">
+      <div class="form-grid">
+        <div class="form-group"><label>Architecture</label><select id="d-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
+        <div class="form-group full"><label>URL de vérification de version</label><input type="text" id="d-check-url" placeholder="https://…/releases/"></div>
+        <div class="form-group full"><label>Regex pattern (groupe 1 = version)</label><input type="text" id="d-pattern" placeholder='href="(\d+\.\d+)/?"'></div>
+        <div class="form-group full"><label>Template URL de téléchargement</label><input type="text" id="d-dl-url" placeholder="https://…/{version}/image.iso"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Utiliser <code>{version}</code> comme placeholder</span></div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-distro')">Annuler</button>
       <button class="btn btn-primary" onclick="saveDistro()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Modifier distribution -->
+<div class="modal-overlay" id="modal-edit-distro">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Modifier la distribution</div>
+      <button class="modal-close" onclick="closeModal('modal-edit-distro')">✕</button>
+    </div>
+    <input type="hidden" id="edit-distro-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom affiché</label><input type="text" id="edit-name"></div>
+      <div class="form-group"><label>Architecture</label><select id="edit-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
+      <div class="form-group full"><label>URL de vérification</label><input type="text" id="edit-check-url"></div>
+      <div class="form-group full"><label>Regex pattern</label><input type="text" id="edit-pattern"></div>
+      <div class="form-group full"><label>Template URL de téléchargement</label><input type="text" id="edit-dl-url"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Utiliser <code>{version}</code> comme placeholder</span></div>
+    </div>
+    <div id="edit-rg-notice" style="display:none" class="rg-info" style="margin-top:12px">
+      <strong>◈ Source rg-adguard</strong> — Cette distribution utilise rg-adguard. Seul le nom peut être modifié.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-distro')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEditDistro()">Sauvegarder</button>
     </div>
   </div>
 </div>
@@ -591,14 +502,8 @@
     </div>
     <input type="hidden" id="mdl-distro-id">
     <div class="form-grid">
-      <div class="form-group">
-        <label>Version</label>
-        <input type="text" id="mdl-version" placeholder="ex: 14.0">
-      </div>
-      <div class="form-group">
-        <label>URL directe</label>
-        <input type="text" id="mdl-url" placeholder="https://...iso">
-      </div>
+      <div class="form-group"><label>Version</label><input type="text" id="mdl-version" placeholder="ex: 13.4 ou 2025.05.01"></div>
+      <div class="form-group"><label>URL directe (.iso)</label><input type="text" id="mdl-url" placeholder="https://…/image.iso"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-manual-dl')">Annuler</button>
@@ -607,143 +512,156 @@
   </div>
 </div>
 
-<!-- Toast container -->
+<!-- Modal: Archive download -->
+<div class="modal-overlay" id="modal-archive-dl">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="archive-dl-title">Télécharger l'archive</div>
+      <button class="modal-close" onclick="closeModal('modal-archive-dl')">✕</button>
+    </div>
+    <div class="info-box" id="archive-dl-info"></div>
+    <div class="form-group">
+      <label>URL de téléchargement</label>
+      <input type="text" id="archive-dl-url" placeholder="URL calculée automatiquement">
+      <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Vous pouvez modifier l'URL si l'automatique ne correspond pas.</span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-archive-dl')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmArchiveDownload()">Télécharger</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toasts"></div>
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
-let refreshTimer = null;
+// ══════════════════════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════════════════════
+let currentArchiveKey = 'debian';
+let archiveData = {};
+let pendingArchive = {};
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════════════════════════════════════════
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
-  loadPage(name);
+  const loaders = {dashboard:loadDashboard,distros:loadDistros,library:loadLibrary,
+    downloads:loadDownloads,archive:()=>loadArchive(currentArchiveKey),
+    logs:loadLogs,settings:loadSettings};
+  if (loaders[name]) loaders[name]();
 }
 
-function loadPage(name) {
-  if (name === 'dashboard') loadDashboard();
-  else if (name === 'distros') loadDistros();
-  else if (name === 'library') loadLibrary();
-  else if (name === 'downloads') loadDownloads();
-  else if (name === 'logs') loadLogs();
-  else if (name === 'settings') loadSettings();
-}
-
-// ── API helpers ───────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  API
+// ══════════════════════════════════════════════════════════════════════════════
 async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const opts = {method, headers:{'Content-Type':'application/json'}};
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch('/api' + path, opts);
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) { const t = await r.text(); throw new Error(t); }
   return r.json();
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(msg, type = 'success') {
+// ══════════════════════════════════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════════════════════════════════
+function toast(msg, type='success') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<span>${type === 'success' ? '✓' : '✕'}</span> ${msg}`;
+  el.innerHTML = `<span>${type==='success'?'✓':type==='info'?'ℹ':'✕'}</span> ${msg}`;
   document.getElementById('toasts').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), 4000);
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Dashboard
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadDashboard() {
   const [stats, distros, logs, progress] = await Promise.all([
-    api('GET', '/stats'), api('GET', '/distros'),
-    api('GET', '/logs'), api('GET', '/progress')
-  ]);
+    api('GET','/stats'), api('GET','/distros'), api('GET','/logs'), api('GET','/progress')]);
 
-  document.getElementById('stat-isos').textContent = stats.total_isos;
-  document.getElementById('stat-size').textContent = stats.total_size_gb + ' GB';
+  document.getElementById('stat-isos').textContent    = stats.total_isos;
+  document.getElementById('stat-size').textContent    = stats.total_size_gb + ' GB';
   document.getElementById('stat-distros').textContent = stats.distros_monitored;
-  document.getElementById('stat-active').textContent = stats.active_downloads;
+  document.getElementById('stat-active').textContent  = stats.active_downloads;
 
-  // Active downloads
-  const dlContainer = document.getElementById('dash-downloads');
-  const active = Object.entries(progress).filter(([,p]) => p.status === 'downloading');
-  if (active.length === 0) {
-    dlContainer.innerHTML = '<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement en cours</div></div>';
-  } else {
-    dlContainer.innerHTML = active.map(([id, p]) => `
+  // Downloads actifs
+  const active = Object.entries(progress).filter(([,p])=>p.status==='downloading');
+  const dlEl = document.getElementById('dash-downloads');
+  dlEl.innerHTML = active.length === 0
+    ? '<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement actif</div></div>'
+    : active.map(([,p])=>`
       <div class="download-item">
-        <div class="download-info">
-          <span class="download-name">${p.distro} <span class="version-tag">${p.version}</span></span>
-          <span class="download-meta">${p.downloaded || '0'} / ${p.size || '?'}</span>
-        </div>
+        <div class="download-info"><span><strong>${p.distro}</strong> <span class="version-tag">${p.version}</span></span><span style="font-size:11px;color:var(--muted)">${p.downloaded||'0'} / ${p.size||'?'}</span></div>
         <div class="progress-wrap"><div class="progress-bar" style="width:${p.percent}%"></div></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${p.percent}%</div>
-      </div>
-    `).join('');
-  }
+        <div style="font-size:11px;color:var(--accent);margin-top:4px">${p.percent}%</div>
+      </div>`).join('');
 
-  // Logs
+  // Logs récents
   const logsEl = document.getElementById('dash-logs');
-  logsEl.innerHTML = logs.slice(0, 8).map(l => `
+  logsEl.innerHTML = logs.slice(0,8).map(l=>`
     <div class="log-entry">
       <div class="log-status ${l.status}"></div>
-      <div class="log-time">${formatDate(l.created_at)}</div>
-      <div class="log-msg">${l.distro_name || '—'} ${l.version || ''} — ${l.message}</div>
-    </div>
-  `).join('') || '<div class="empty"><div class="empty-text">Aucune activité</div></div>';
+      <div class="log-time">${fmt(l.created_at)}</div>
+      <div class="log-msg">${l.distro_name||'—'} — ${l.message}</div>
+    </div>`).join('') || '<div class="empty"><div class="empty-text">Aucune activité</div></div>';
 
-  // Distros overview
-  const distrosEl = document.getElementById('dash-distros');
-  distrosEl.innerHTML = `<table><thead><tr><th>Nom</th><th>Dernière version</th><th>ISO stockées</th><th>Vérifié</th><th>Actions</th></tr></thead><tbody>
-    ${distros.map(d => `
-      <tr>
-        <td><span class="badge badge-${d.type}">${d.type}</span> ${d.name}</td>
-        <td>${d.latest_version ? `<span class="version-tag">${d.latest_version}</span>` : '<span class="chip">—</span>'}</td>
-        <td><span class="chip">${d.iso_count || 0} ISO</span></td>
-        <td style="color:var(--muted);font-size:11px;">${d.last_checked ? formatDate(d.last_checked) : 'Jamais'}</td>
-        <td>
-          ${d.download_url_template ? `<button class="btn btn-secondary btn-sm" onclick="openManualDl(${d.id})">↓ Manuel</button>` : '<span class="chip">Manuel requis</span>'}
-        </td>
-      </tr>
-    `).join('')}
-  </tbody></table>`;
+  // Distros table
+  const dEl = document.getElementById('dash-distros');
+  dEl.innerHTML = `<table><thead><tr><th>Nom</th><th>Source</th><th>Dernière version</th><th>ISO</th><th>Actions</th></tr></thead><tbody>${
+    distros.map(d=>`<tr>
+      <td><span class="badge badge-${d.type}">${d.type}</span> ${d.name}</td>
+      <td>${srcBadge(d.source)}</td>
+      <td>${d.latest_version?`<span class="version-tag" title="${d.latest_version}">${trunc(d.latest_version,30)}</span>`:'—'}</td>
+      <td><span class="chip">${d.iso_count||0}</span></td>
+      <td><div style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="checkVersion(${d.id})">⟳</button>
+        <button class="btn btn-secondary btn-sm" onclick="openManualDl(${d.id})">↓</button>
+      </div></td>
+    </tr>`).join('')
+  }</tbody></table>`;
 }
 
-// ── Distros ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Distributions
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadDistros() {
-  const distros = await api('GET', '/distros');
-  const tbody = document.getElementById('distros-table');
-  tbody.innerHTML = distros.map(d => `
+  const distros = await api('GET','/distros');
+  document.getElementById('distros-table').innerHTML = distros.map(d=>`
     <tr>
-      <td>
-        <strong>${d.name}</strong>
-        ${d.source === 'rg-adguard' ? '<span class="badge badge-rg" style="margin-left:6px;font-size:9px;">rg-adguard</span>' : ''}
-      </td>
+      <td><strong>${d.name}</strong></td>
       <td><span class="badge badge-${d.type}">${d.type}</span></td>
-      <td>${d.latest_version ? `<span class="version-tag" title="${d.latest_version}">${d.latest_version.length > 30 ? d.latest_version.substring(0,28)+'…' : d.latest_version}</span>` : '—'}</td>
-      <td style="color:var(--muted);font-size:11px;">${d.last_checked ? formatDate(d.last_checked) : 'Jamais'}</td>
-      <td><span class="chip">${d.iso_count || 0}</span></td>
-      <td><span class="badge badge-${d.enabled ? 'enabled' : 'disabled'}">${d.enabled ? 'Actif' : 'Pausé'}</span></td>
-      <td>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="checkVersion(${d.id})">⟳ Check</button>
-          <button class="btn btn-secondary btn-sm" onclick="openManualDl(${d.id})">↓ Manuel</button>
-          <button class="btn btn-secondary btn-sm" onclick="toggleDistro(${d.id})">${d.enabled ? '⏸' : '▶'}</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteDistro(${d.id})">✕</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+      <td>${srcBadge(d.source)}</td>
+      <td>${d.latest_version?`<span class="version-tag" title="${d.latest_version}">${trunc(d.latest_version,28)}</span>`:'—'}</td>
+      <td style="color:var(--muted);font-size:11px">${d.last_checked?fmt(d.last_checked):'Jamais'}</td>
+      <td><span class="chip">${d.iso_count||0}</span></td>
+      <td><span class="badge badge-${d.enabled?'enabled':'disabled'}">${d.enabled?'Actif':'Pausé'}</span></td>
+      <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="checkVersion(${d.id})" title="Vérifier version">⟳</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEditDistro(${d.id})" title="Modifier">✏</button>
+        <button class="btn btn-secondary btn-sm" onclick="openManualDl(${d.id})" title="Télécharger manuellement">↓</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleDistro(${d.id})" title="${d.enabled?'Désactiver':'Activer'}">${d.enabled?'⏸':'▶'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDistro(${d.id})" title="Supprimer">✕</button>
+      </div></td>
+    </tr>`).join('');
 }
 
 async function checkVersion(id) {
-  toast('Vérification en cours...', 'success');
-  const r = await api('GET', `/check-version/${id}`);
-  if (r.source === 'rg-adguard') {
-    const size = r.size_bytes ? ` — ${(r.size_bytes/1e9).toFixed(2)} GB` : '';
-    const sha  = r.sha256     ? `\nSHA-256: ${r.sha256.substring(0,16)}...` : '';
-    toast(`${r.distro} [rg-adguard]\n${r.version || 'Inconnu'}${size}${sha}`, 'success');
-  } else {
-    toast(`${r.distro} : version ${r.version || 'inconnue'}`, 'success');
-  }
+  toast('Vérification en cours…', 'info');
+  try {
+    const r = await api('GET', `/check-version/${id}`);
+    if (r.source === 'rg-adguard') {
+      const sz = r.size_bytes ? ` — ${(r.size_bytes/1e9).toFixed(2)} GB` : '';
+      toast(`${r.distro} [rg]\n${r.version||'Inconnu'}${sz}`, 'success');
+    } else {
+      toast(`${r.distro} : ${r.version||'version inconnue'}`, 'success');
+    }
+  } catch(e) { toast('Erreur : '+e.message, 'error'); }
   loadDistros();
 }
 
@@ -755,32 +673,41 @@ async function toggleDistro(id) {
 async function deleteDistro(id) {
   if (!confirm('Supprimer cette distribution ?')) return;
   await api('DELETE', `/distros/${id}`);
+  toast('Distribution supprimée.', 'success');
   loadDistros();
 }
 
-function openAddDistro() { document.getElementById('modal-distro').classList.add('open'); }
+function openAddDistro() {
+  document.getElementById('d-name').value = '';
+  document.getElementById('d-slug').value = '';
+  document.getElementById('d-check-url').value = '';
+  document.getElementById('d-pattern').value = '';
+  document.getElementById('d-dl-url').value = '';
+  document.getElementById('d-source').value = 'direct';
+  toggleSourceFields();
+  document.getElementById('modal-distro').classList.add('open');
+}
+
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 function toggleSourceFields() {
   const isRg = document.getElementById('d-source').value === 'rg-adguard';
-  document.getElementById('rg-slug-group').style.display = isRg ? 'block' : 'none';
+  document.getElementById('rg-slug-group').style.display  = isRg ? 'block' : 'none';
   document.getElementById('direct-fields').style.display  = isRg ? 'none'  : 'block';
 }
 
 async function saveDistro() {
   const source = document.getElementById('d-source').value;
   const isRg   = source === 'rg-adguard';
-  const rgSlug = document.getElementById('d-rg-slug').value;
-
   const d = {
-    name:   document.getElementById('d-name').value,
-    slug:   isRg ? rgSlug : document.getElementById('d-slug').value,
-    type:   document.getElementById('d-type').value,
-    source: source,
-    arch:   isRg ? 'amd64' : document.getElementById('d-arch').value,
-    check_url:             isRg ? null : (document.getElementById('d-check-url').value || null),
-    version_pattern:       isRg ? null : (document.getElementById('d-pattern').value   || null),
-    download_url_template: isRg ? null : (document.getElementById('d-dl-url').value    || null),
+    name:                  document.getElementById('d-name').value.trim(),
+    slug:                  isRg ? document.getElementById('d-rg-slug').value : document.getElementById('d-slug').value.trim(),
+    type:                  isRg ? 'windows' : document.getElementById('d-type').value,
+    source,
+    arch:                  isRg ? 'amd64' : document.getElementById('d-arch').value,
+    check_url:             isRg ? null : (document.getElementById('d-check-url').value.trim() || null),
+    version_pattern:       isRg ? null : (document.getElementById('d-pattern').value.trim()   || null),
+    download_url_template: isRg ? null : (document.getElementById('d-dl-url').value.trim()    || null),
   };
   if (!d.name) { toast('Le nom est requis', 'error'); return; }
   try {
@@ -788,10 +715,52 @@ async function saveDistro() {
     closeModal('modal-distro');
     toast('Distribution ajoutée !');
     loadDistros();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+  } catch(e) { toast('Erreur : '+e.message, 'error'); }
 }
 
-// ── Library ───────────────────────────────────────────────────────────────────
+// ── Modification distribution ─────────────────────────────────────────────────
+let editDistroData = {};
+async function openEditDistro(id) {
+  const distros = await api('GET', '/distros');
+  const d = distros.find(x => x.id === id);
+  if (!d) return;
+  editDistroData = d;
+  document.getElementById('edit-distro-id').value  = d.id;
+  document.getElementById('edit-name').value        = d.name || '';
+  document.getElementById('edit-arch').value        = d.arch || 'amd64';
+  document.getElementById('edit-check-url').value   = d.check_url || '';
+  document.getElementById('edit-pattern').value     = d.version_pattern || '';
+  document.getElementById('edit-dl-url').value      = d.download_url_template || '';
+  const isRg = d.source === 'rg-adguard';
+  document.getElementById('edit-rg-notice').style.display = isRg ? 'block' : 'none';
+  ['edit-check-url','edit-pattern','edit-dl-url','edit-arch'].forEach(f=>{
+    document.getElementById(f).disabled = isRg;
+    document.getElementById(f).style.opacity = isRg ? '.4' : '1';
+  });
+  document.getElementById('modal-edit-distro').classList.add('open');
+}
+
+async function saveEditDistro() {
+  const id = parseInt(document.getElementById('edit-distro-id').value);
+  const isRg = editDistroData.source === 'rg-adguard';
+  const payload = { name: document.getElementById('edit-name').value.trim() };
+  if (!isRg) {
+    payload.arch                  = document.getElementById('edit-arch').value;
+    payload.check_url             = document.getElementById('edit-check-url').value.trim() || null;
+    payload.version_pattern       = document.getElementById('edit-pattern').value.trim()   || null;
+    payload.download_url_template = document.getElementById('edit-dl-url').value.trim()    || null;
+  }
+  try {
+    await api('PUT', `/distros/${id}`, payload);
+    closeModal('modal-edit-distro');
+    toast('Distribution mise à jour !');
+    loadDistros();
+  } catch(e) { toast('Erreur : '+e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Library
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadLibrary() {
   const isos = await api('GET', '/library');
   const tbody = document.getElementById('library-table');
@@ -799,120 +768,166 @@ async function loadLibrary() {
     tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">▦</div><div class="empty-text">Aucune ISO dans la bibliothèque</div></div></td></tr>';
     return;
   }
-  tbody.innerHTML = isos.map(i => {
-    const srcBadge = i.source === 'rg-adguard' ? '<span class="badge badge-rg">rg-adguard</span>'
-                   : i.source === 'manual'      ? '<span class="badge badge-manual">Manuel</span>'
-                   :                              '<span class="badge badge-direct">Direct</span>';
-    const warnBadge = i.status === 'checksum_warning' ? ' <span class="badge badge-warning">⚠ checksum</span>' : '';
-    return `
-    <tr>
-      <td><span class="badge badge-${i.type}">${i.type}</span> ${i.distro_name}${warnBadge}</td>
-      <td><span class="version-tag" title="${i.version}">${i.version.length>30?i.version.substring(0,28)+'…':i.version}</span></td>
-      <td style="font-size:12px;" title="${i.filename}">${i.filename.length>40?i.filename.substring(0,38)+'…':i.filename}</td>
-      <td>${i.size_bytes ? (i.size_bytes/1e9).toFixed(2)+' GB' : '—'}</td>
-      <td>${srcBadge}</td>
-      <td style="font-size:10px;color:var(--muted);">${i.checksum_sha256 ? i.checksum_sha256.substr(0,16)+'...' : '—'}</td>
-      <td style="font-size:11px;color:var(--muted);">${formatDate(i.downloaded_at)}</td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = isos.map(i=>`<tr>
+    <td><span class="badge badge-${i.type}">${i.type}</span> ${i.distro_name}${i.status==='checksum_warning'?' <span class="badge badge-warning">⚠ checksum</span>':''}</td>
+    <td><span class="version-tag" title="${i.version}">${trunc(i.version,28)}</span></td>
+    <td style="font-size:11px" title="${i.filename}">${trunc(i.filename,38)}</td>
+    <td>${i.size_bytes?(i.size_bytes/1e9).toFixed(2)+' GB':'—'}</td>
+    <td>${srcBadge(i.source)}</td>
+    <td style="font-size:10px;color:var(--muted)">${i.checksum_sha256?i.checksum_sha256.substr(0,14)+'…':'—'}</td>
+    <td style="font-size:11px;color:var(--muted)">${fmt(i.downloaded_at)}</td>
+  </tr>`).join('');
 }
 
-// ── Downloads ─────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Downloads
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadDownloads() {
   const progress = await api('GET', '/progress');
-  const entries = Object.entries(progress);
+  const entries  = Object.entries(progress);
   const el = document.getElementById('downloads-list');
   if (!entries.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement actif</div></div>';
     return;
   }
-  el.innerHTML = entries.map(([id, p]) => `
+  el.innerHTML = entries.map(([,p])=>`
     <div class="download-item">
       <div class="download-info">
-        <div>
-          <span class="download-name">${p.distro}</span>
-          <span class="version-tag" style="margin-left:8px;">${p.version}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span class="download-meta">${p.downloaded || '0'} / ${p.size || '?'}</span>
-          <span class="badge badge-${p.status === 'complete' ? 'enabled' : p.status === 'error' ? 'disabled' : 'linux'}">${p.status}</span>
-        </div>
+        <div><strong>${p.distro}</strong> <span class="version-tag">${p.version}</span> ${srcBadge(p.source||'direct')}</div>
+        <span class="badge badge-${p.status==='complete'?'enabled':p.status==='error'?'danger':p.status==='warning'?'warning':'linux'}">${p.status}</span>
       </div>
       <div class="progress-wrap"><div class="progress-bar" style="width:${p.percent}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px;">
-        <span style="font-size:11px;color:var(--muted);">${p.filename}</span>
-        <span style="font-size:11px;color:var(--accent);">${p.percent}%</span>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span style="font-size:11px;color:var(--muted)">${p.filename}</span>
+        <span style="font-size:11px;color:var(--accent)">${p.percent}%  ${p.downloaded||''} / ${p.size||''}</span>
       </div>
-      ${p.error ? `<div style="font-size:11px;color:var(--red);margin-top:4px;">⚠ ${p.error}</div>` : ''}
-    </div>
-  `).join('');
+      ${p.error?`<div style="font-size:11px;color:var(--red);margin-top:4px">⚠ ${p.error}</div>`:''}
+      ${p.warning?`<div style="font-size:11px;color:var(--yellow);margin-top:4px">⚠ ${p.warning}</div>`:''}
+    </div>`).join('');
 }
 
-function openManualDl(distroId) {
-  document.getElementById('mdl-distro-id').value = distroId;
-  document.getElementById('mdl-version').value = '';
-  document.getElementById('mdl-url').value = '';
+// ══════════════════════════════════════════════════════════════════════════════
+//  Archive FTP
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadArchive(key) {
+  currentArchiveKey = key;
+  document.querySelectorAll('.action-bar .btn[data-key]').forEach(b=>{
+    b.classList.toggle('btn-primary', b.dataset.key===key);
+    b.classList.toggle('btn-secondary', b.dataset.key!==key);
+  });
+  const grid = document.getElementById('archive-grid');
+  grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px">Chargement des versions depuis le FTP officiel…</div>';
+  try {
+    const data = await api('GET', `/archive/${key}?limit=30`);
+    archiveData[key] = data;
+    document.getElementById('archive-title').textContent = `${data.name} — ${data.versions.length} versions disponibles`;
+    document.getElementById('archive-ftp-link').innerHTML = `FTP officiel : <a href="${data.ftp_index}" target="_blank" style="color:var(--accent)">${data.ftp_index}</a>`;
+    if (!data.versions.length) {
+      grid.innerHTML = '<div class="empty"><div class="empty-icon">◫</div><div class="empty-text">Aucune version trouvée sur le FTP</div></div>';
+      return;
+    }
+    grid.innerHTML = '<div class="archive-grid">' +
+      data.versions.map(v=>`
+        <div class="archive-card" onclick="openArchiveDl('${key}','${v}')">
+          <div class="av">${v}</div>
+          <div class="as">${data.name}</div>
+        </div>`).join('') +
+      '</div>';
+  } catch(e) {
+    grid.innerHTML = `<div class="empty"><div class="empty-text">Erreur : ${e.message}</div></div>`;
+  }
+}
+
+function openArchiveDl(key, version) {
+  const data = archiveData[key];
+  if (!data) return;
+  const url = data.url_template.replace(/{version}/g, version);
+  pendingArchive = {key, version, url};
+  document.getElementById('archive-dl-title').textContent = `Télécharger ${data.name} ${version}`;
+  document.getElementById('archive-dl-info').innerHTML =
+    `<strong>${data.name}</strong> version <code>${version}</code><br>Source : <a href="${data.ftp_index}" target="_blank" style="color:var(--accent)">${data.ftp_index}</a>`;
+  document.getElementById('archive-dl-url').value = url;
+  document.getElementById('modal-archive-dl').classList.add('open');
+}
+
+async function confirmArchiveDownload() {
+  const url     = document.getElementById('archive-dl-url').value.trim();
+  const {key, version} = pendingArchive;
+  if (!url) { toast('URL requise', 'error'); return; }
+  try {
+    await api('POST', '/archive/download', {distro_key: key, version, url});
+    closeModal('modal-archive-dl');
+    toast(`Téléchargement de ${key} ${version} lancé !`);
+    showPage('downloads');
+  } catch(e) { toast('Erreur : '+e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Téléchargement manuel
+// ══════════════════════════════════════════════════════════════════════════════
+function openManualDl(id) {
+  document.getElementById('mdl-distro-id').value = id;
+  document.getElementById('mdl-version').value   = '';
+  document.getElementById('mdl-url').value       = '';
   document.getElementById('modal-manual-dl').classList.add('open');
 }
 
 async function startManualDownload() {
   const payload = {
     distro_id: parseInt(document.getElementById('mdl-distro-id').value),
-    version: document.getElementById('mdl-version').value,
-    url: document.getElementById('mdl-url').value,
+    version:   document.getElementById('mdl-version').value.trim(),
+    url:       document.getElementById('mdl-url').value.trim(),
   };
+  if (!payload.version || !payload.url) { toast('Version et URL requises', 'error'); return; }
   try {
     await api('POST', '/download', payload);
     closeModal('modal-manual-dl');
     toast('Téléchargement lancé !');
     showPage('downloads');
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+  } catch(e) { toast('Erreur : '+e.message, 'error'); }
 }
 
-// ── Logs ──────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Logs
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadLogs() {
   const logs = await api('GET', '/logs');
-  const el = document.getElementById('logs-list');
-  el.innerHTML = logs.map(l => `
+  document.getElementById('logs-list').innerHTML = logs.map(l=>`
     <div class="log-entry">
       <div class="log-status ${l.status}"></div>
-      <div class="log-time">${formatDate(l.created_at)}</div>
-      <div class="log-msg"><strong>${l.distro_name || '—'}</strong> ${l.version || ''} — ${l.message}</div>
-    </div>
-  `).join('') || '<div class="empty"><div class="empty-text">Aucun log</div></div>';
+      <div class="log-time">${fmt(l.created_at)}</div>
+      <div class="log-msg"><strong>${l.distro_name||'—'}</strong> ${l.version?`<span class="version-tag">${l.version}</span>`:''} — ${l.message}</div>
+    </div>`).join('') || '<div class="empty"><div class="empty-text">Aucun log</div></div>';
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Settings
+// ══════════════════════════════════════════════════════════════════════════════
 async function loadSettings() {
   const s = await api('GET', '/settings');
-  document.getElementById('schedule-hour').value = s.schedule_hour || 3;
-  document.getElementById('schedule-minute').value = s.schedule_minute || 0;
-  document.getElementById('schedule-days').value = s.schedule_days || 'mon';
-  document.getElementById('discord-webhook').value = s.discord_webhook || '';
-
-  const freq = s.check_frequency || 'weekly';
-  document.getElementById('schedule-freq').value = freq;
+  document.getElementById('schedule-hour').value    = s.schedule_hour   || 3;
+  document.getElementById('schedule-minute').value  = s.schedule_minute || 0;
+  document.getElementById('schedule-days').value    = s.schedule_days   || 'mon';
+  document.getElementById('discord-webhook').value  = s.discord_webhook || '';
+  document.getElementById('schedule-freq').value    = s.check_frequency || 'weekly';
   updateFreqUI();
-
-  const days = ['sun','mon','tue','wed','thu','fri','sat'];
-  const dayNames = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-  const dayIdx = days.indexOf(s.schedule_days || 'mon');
+  const dayNames = {mon:'lundi',tue:'mardi',wed:'mercredi',thu:'jeudi',fri:'vendredi',sat:'samedi',sun:'dimanche'};
   document.getElementById('current-schedule').innerHTML =
-    `Vérification planifiée : <strong>chaque ${dayNames[dayIdx] || 'lundi'} à ${String(s.schedule_hour||3).padStart(2,'0')}h${String(s.schedule_minute||0).padStart(2,'0')}</strong>`;
+    `Vérification planifiée : <strong>chaque ${dayNames[s.schedule_days||'mon']} à ${String(s.schedule_hour||3).padStart(2,'0')}h${String(s.schedule_minute||0).padStart(2,'0')}</strong>`;
 }
 
 function updateFreqUI() {
   const freq = document.getElementById('schedule-freq').value;
-  document.getElementById('day-group').style.display = freq === 'daily' ? 'none' : 'flex';
+  document.getElementById('day-group').style.display = freq==='daily' ? 'none' : 'flex';
 }
 
 async function saveSchedule() {
-  const freq = document.getElementById('schedule-freq').value;
-  const days_map = { daily: '*', weekly: document.getElementById('schedule-days').value, monthly: '1', custom: document.getElementById('schedule-days').value };
+  const freq   = document.getElementById('schedule-freq').value;
+  const daysMap = {daily:'*', weekly:document.getElementById('schedule-days').value, monthly:'1'};
   await api('PUT', '/settings', {
-    schedule_hour: parseInt(document.getElementById('schedule-hour').value),
+    schedule_hour:   parseInt(document.getElementById('schedule-hour').value),
     schedule_minute: parseInt(document.getElementById('schedule-minute').value),
-    schedule_days: days_map[freq] || 'mon',
+    schedule_days:   daysMap[freq] || 'mon',
     check_frequency: freq,
   });
   toast('Planning sauvegardé !');
@@ -920,40 +935,58 @@ async function saveSchedule() {
 }
 
 async function saveDiscord() {
-  await api('PUT', '/settings', { discord_webhook: document.getElementById('discord-webhook').value });
+  await api('PUT', '/settings', {discord_webhook: document.getElementById('discord-webhook').value.trim()});
   toast('Webhook Discord sauvegardé !');
 }
 
 async function testDiscord() {
-  const webhook = document.getElementById('discord-webhook').value;
+  const webhook = document.getElementById('discord-webhook').value.trim();
+  if (!webhook) { toast('Entrez d\'abord le webhook', 'error'); return; }
+  toast('Envoi du message test…', 'info');
   try {
-    await api('POST', '/test-discord', { webhook_url: webhook });
-    toast('Message test envoyé sur Discord !');
-  } catch(e) { toast('Erreur Discord : ' + e.message, 'error'); }
+    const r = await api('POST', '/test-discord', {webhook_url: webhook});
+    toast(`Message test envoyé ! (HTTP ${r.http_code||200})`);
+  } catch(e) { toast('Erreur Discord : '+e.message, 'error'); }
 }
 
-// ── Check trigger ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Check global
+// ══════════════════════════════════════════════════════════════════════════════
 async function triggerCheck() {
   await api('POST', '/check');
-  toast('Vérification lancée !');
-  setTimeout(loadDashboard, 1000);
+  toast('Vérification de toutes les distributions lancée !', 'info');
+  setTimeout(loadDashboard, 1500);
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
-function formatDate(d) {
+// ══════════════════════════════════════════════════════════════════════════════
+//  Utils
+// ══════════════════════════════════════════════════════════════════════════════
+function fmt(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  return new Date(d).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function trunc(s, n) { return s && s.length > n ? s.substring(0,n)+'…' : (s||''); }
+function srcBadge(src) {
+  if (src==='rg-adguard') return '<span class="badge badge-rg">rg-adguard</span>';
+  if (src==='archive')    return '<span class="badge badge-archive">Archive</span>';
+  if (src==='manual')     return '<span class="badge badge-manual">Manuel</span>';
+  return '<span class="badge badge-direct">Direct</span>';
 }
 
-// ── Auto-refresh ──────────────────────────────────────────────────────────────
-setInterval(() => {
-  const active = document.querySelector('.page.active')?.id;
-  if (active === 'page-dashboard') loadDashboard();
-  else if (active === 'page-downloads') loadDownloads();
+// ══════════════════════════════════════════════════════════════════════════════
+//  Auto-refresh
+// ══════════════════════════════════════════════════════════════════════════════
+setInterval(()=>{
+  const id = document.querySelector('.page.active')?.id;
+  if (id==='page-dashboard') loadDashboard();
+  else if (id==='page-downloads') loadDownloads();
 }, 5000);
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════════════════════════════
 loadDashboard();
+loadArchive('debian');
 </script>
 </body>
 </html>
