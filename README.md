@@ -124,3 +124,7 @@ Configurable depuis **Paramètres** :
 |------------|---------|--------------------------------|
 | `DATA_DIR` | `/data` | Répertoire des données         |
 | `TZ`       | `UTC`   | Fuseau horaire                 |
+
+
+## Credits
+Majoritairement développé avec l'assistance de Claude.AI
