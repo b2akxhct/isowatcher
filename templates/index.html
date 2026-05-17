@@ -179,6 +179,7 @@ textarea{resize:vertical;min-height:70px}
     <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><span class="icon">⬇</span>En cours</button>
     <button class="nav-item" onclick="showPage('archive')"   id="nav-archive"><span class="icon">◫</span>Archives FTP</button>
     <div class="nav-section">Outils</div>
+    <button class="nav-item" onclick="showPage('scan')"      id="nav-scan"><span class="icon">⟳</span>Scan local</button>
     <button class="nav-item" onclick="showPage('tuto')"      id="nav-tuto"><span class="icon">◷</span>Guide d'ajout</button>
     <button class="nav-item" onclick="showPage('logs')"      id="nav-logs"><span class="icon">≡</span>Logs</button>
     <button class="nav-item" onclick="showPage('settings')"  id="nav-settings"><span class="icon">⚙</span>Paramètres</button>
@@ -276,6 +277,104 @@ textarea{resize:vertical;min-height:70px}
     <div class="card-title" id="archive-title">Debian — Versions disponibles</div>
     <div id="archive-ftp-link" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
     <div id="archive-grid"></div>
+  </div>
+</div>
+
+<!-- ─── SCAN LOCAL ─── -->
+<div class="page" id="page-scan">
+  <div class="page-header">
+    <div class="page-title-wrap">
+      <div class="page-title">Scan local</div>
+      <div class="page-subtitle">Analyser et importer les ISO déjà présentes sur le stockage</div>
+    </div>
+    <button class="btn btn-primary" id="scan-btn" onclick="startScan()">⟳ Lancer le scan</button>
+  </div>
+
+  <!-- Info box -->
+  <div class="info-box">
+    <strong>ℹ Comment fonctionne le scan</strong><br>
+    Le scan parcourt récursivement le dossier <code>/data/isos</code> à la recherche de fichiers <code>.iso</code>.
+    Chaque fichier est analysé : les ISO reconnues sont importées automatiquement avec leur checksum SHA-256.
+    Les fichiers <strong>modifiés</strong> (taille différente) sont marqués sans écraser les données existantes.
+    Les fichiers <strong>non identifiés</strong> vous sont présentés pour assignation manuelle.
+  </div>
+
+  <!-- Barre de progression -->
+  <div class="card" id="scan-progress-card" style="display:none">
+    <div class="card-title">
+      <span id="scan-progress-title">Scan en cours…</span>
+      <span id="scan-progress-pct" style="color:var(--accent);font-family:var(--mono)">0%</span>
+    </div>
+    <div class="progress-wrap" style="height:10px">
+      <div class="progress-bar" id="scan-progress-bar" style="width:0%"></div>
+    </div>
+    <div style="display:flex;gap:24px;margin-top:14px;flex-wrap:wrap">
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--text)" id="sc-total">0</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Total</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--green)" id="sc-new">0</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Importés</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--yellow)" id="sc-modified">0</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Modifiés</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--muted)" id="sc-known">0</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Déjà connus</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)" id="sc-unid">0</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Non identifiés</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted)" id="scan-current-file"></div>
+  </div>
+
+  <!-- Section: Non identifiés (assignation manuelle) -->
+  <div id="scan-unidentified-section" style="display:none">
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">
+        ⚠ Fichiers non identifiés — assignation manuelle requise
+        <span id="unid-count-badge" class="badge badge-warning">0</span>
+      </div>
+      <div class="info-box" style="background:rgba(255,61,113,.05);border-color:rgba(255,61,113,.2)">
+        Ces ISO n'ont pas pu être reconnues automatiquement depuis leur nom de fichier.
+        Assignez-leur une distribution et une version, ou ignorez-les.
+      </div>
+      <div id="unidentified-list"></div>
+    </div>
+  </div>
+
+  <!-- Rapport complet -->
+  <div id="scan-report-section" style="display:none">
+    <div class="card" style="padding:0">
+      <div style="padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:var(--display);font-size:14px;font-weight:700">Rapport de scan</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('all')"    id="rf-all">Tous</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('imported')" id="rf-imported">Importés</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('modified')" id="rf-modified">Modifiés</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('known')"    id="rf-known">Connus</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('unidentified')" id="rf-unid">Non identifiés</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Fichier</th><th>Taille</th><th>Distribution</th><th>Version</th><th>Statut</th><th>Note</th></tr></thead>
+        <tbody id="scan-report-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- État initial (aucun scan) -->
+  <div id="scan-initial">
+    <div class="empty" style="padding:80px 20px">
+      <div class="empty-icon">⟳</div>
+      <div class="empty-text">Cliquez sur <strong>Lancer le scan</strong> pour analyser votre bibliothèque locale</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Le scan est non-destructif et peut être lancé à tout moment</div>
+    </div>
   </div>
 </div>
 
@@ -512,7 +611,38 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
   </div>
 </div>
 
-<!-- Modal: Archive download -->
+<!-- Modal: Assignation manuelle scan -->
+<div class="modal-overlay" id="modal-assign">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Assigner une distribution</div>
+      <button class="modal-close" onclick="closeModal('modal-assign')">✕</button>
+    </div>
+    <input type="hidden" id="assign-filepath">
+    <div class="info-box" id="assign-fileinfo" style="margin-bottom:16px"></div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Distribution</label>
+        <select id="assign-distro-id"></select>
+      </div>
+      <div class="form-group full">
+        <label>Version</label>
+        <input type="text" id="assign-version" placeholder="ex: 13.4 ou 2025.05.01">
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+      Le SHA-256 sera calculé après validation (peut prendre quelques secondes pour les grosses ISO).
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="ignoreUnidentified()">Ignorer ce fichier</button>
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" onclick="closeModal('modal-assign')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmAssign()">✓ Assigner</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Assignation manuelle scan -->
 <div class="modal-overlay" id="modal-archive-dl">
   <div class="modal">
     <div class="modal-header">
@@ -552,6 +682,7 @@ function showPage(name) {
   document.getElementById('nav-' + name).classList.add('active');
   const loaders = {dashboard:loadDashboard,distros:loadDistros,library:loadLibrary,
     downloads:loadDownloads,archive:()=>loadArchive(currentArchiveKey),
+    scan: ()=>{ /* page scan : pas de chargement initial, juste afficher l'état */ if(scan_state_cached) updateScanUI(scan_state_cached); },
     logs:loadLogs,settings:loadSettings};
   if (loaders[name]) loaders[name]();
 }
@@ -974,8 +1105,219 @@ function srcBadge(src) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  Auto-refresh
+//  Scan local
 // ══════════════════════════════════════════════════════════════════════════════
+let scanPollTimer  = null;
+let fullScanReport = [];
+let currentAssignFilepath = null;
+
+async function startScan() {
+  const btn = document.getElementById('scan-btn');
+  try {
+    await api('POST', '/scan/start');
+  } catch(e) {
+    if (e.message.includes('409') || e.message.includes('en cours')) {
+      toast('Un scan est déjà en cours', 'info');
+    } else {
+      toast('Erreur : ' + e.message, 'error');
+      return;
+    }
+  }
+  document.getElementById('scan-initial').style.display          = 'none';
+  document.getElementById('scan-progress-card').style.display    = 'block';
+  document.getElementById('scan-report-section').style.display   = 'none';
+  document.getElementById('scan-unidentified-section').style.display = 'none';
+  btn.disabled    = true;
+  btn.textContent = '⟳ Scan en cours…';
+  toast('Scan lancé !', 'info');
+  if (scanPollTimer) clearInterval(scanPollTimer);
+  scanPollTimer = setInterval(pollScanStatus, 1500);
+}
+
+async function pollScanStatus() {
+  try {
+    const s = await api('GET', '/scan/status');
+    updateScanUI(s);
+    if (!s.running) {
+      clearInterval(scanPollTimer);
+      scanPollTimer = null;
+      finalizeScan(s);
+    }
+  } catch(e) {
+    logger.error && logger.error(e);
+  }
+}
+
+function updateScanUI(s) {
+  document.getElementById('scan-progress-bar').style.width = s.progress + '%';
+  document.getElementById('scan-progress-pct').textContent = s.progress + '%';
+  document.getElementById('scan-progress-title').textContent =
+    s.running ? `Scan en cours… (${s.scanned}/${s.total_files})` : 'Scan terminé';
+  document.getElementById('sc-total').textContent    = s.total_files;
+  document.getElementById('sc-new').textContent      = s.found_new;
+  document.getElementById('sc-modified').textContent = s.found_modified;
+  document.getElementById('sc-known').textContent    = s.found_known;
+  document.getElementById('sc-unid').textContent     = s.unidentified ? s.unidentified.length : 0;
+}
+
+function finalizeScan(s) {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled    = false;
+  btn.textContent = '⟳ Nouveau scan';
+
+  fullScanReport = s.results || [];
+
+  if (s.error) {
+    toast('Erreur pendant le scan : ' + s.error, 'error');
+  } else {
+    const unid = (s.unidentified || []).length;
+    toast(`Scan terminé — ${s.found_new} nouveaux, ${s.found_modified} modifiés, ${unid} non identifiés`,
+          unid > 0 ? 'info' : 'success');
+  }
+
+  // Afficher les non-identifiés
+  const unidentified = s.unidentified || [];
+  if (unidentified.length > 0) {
+    document.getElementById('scan-unidentified-section').style.display = 'block';
+    document.getElementById('unid-count-badge').textContent = unidentified.length;
+    renderUnidentifiedList(unidentified);
+  } else {
+    document.getElementById('scan-unidentified-section').style.display = 'none';
+  }
+
+  // Rapport complet
+  document.getElementById('scan-report-section').style.display = 'block';
+  renderReport(fullScanReport, 'all');
+}
+
+function renderUnidentifiedList(list) {
+  const el = document.getElementById('unidentified-list');
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--green);font-size:13px;padding:12px 0">✓ Tous les fichiers ont été assignés</div>';
+    document.getElementById('unid-count-badge').textContent = '0';
+    return;
+  }
+  el.innerHTML = list.map(f => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);word-break:break-all">${f.filename}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">${f.size_gb} GB — <code style="font-size:10px">${f.filepath}</code></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-primary btn-sm" onclick="openAssignModal('${escJs(f.filepath)}','${escJs(f.filename)}','${f.size_gb}')">✏ Assigner</button>
+        <button class="btn btn-danger btn-sm"  onclick="quickIgnore('${escJs(f.filepath)}')">✕ Ignorer</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('unid-count-badge').textContent = list.length;
+}
+
+async function openAssignModal(filepath, filename, sizeGb) {
+  currentAssignFilepath = filepath;
+  document.getElementById('assign-filepath').value  = filepath;
+  document.getElementById('assign-version').value   = '';
+  document.getElementById('assign-fileinfo').innerHTML =
+    `<strong>${filename}</strong><br><span style="color:var(--muted);font-size:11px">${filepath} — ${sizeGb} GB</span>`;
+
+  // Charger la liste des distros
+  const distros = await api('GET', '/distros');
+  const sel = document.getElementById('assign-distro-id');
+  sel.innerHTML = distros.map(d =>
+    `<option value="${d.id}">${d.name} (${d.slug})</option>`
+  ).join('');
+
+  document.getElementById('modal-assign').classList.add('open');
+}
+
+async function confirmAssign() {
+  const filepath  = document.getElementById('assign-filepath').value;
+  const distro_id = parseInt(document.getElementById('assign-distro-id').value);
+  const version   = document.getElementById('assign-version').value.trim();
+  if (!version) { toast('La version est requise', 'error'); return; }
+
+  const btn = document.querySelector('#modal-assign .btn-primary');
+  btn.textContent = '⟳ Calcul checksum…';
+  btn.disabled    = true;
+
+  try {
+    const r = await api('POST', '/scan/assign', {filepath, distro_id, version});
+    toast(`Assigné ! SHA-256: ${r.sha256.substr(0,16)}… (${r.size_gb} GB)`);
+    closeModal('modal-assign');
+    // Rafraîchir l'état du scan
+    const s = await api('GET', '/scan/status');
+    renderUnidentifiedList(s.unidentified || []);
+    fullScanReport = s.results || [];
+    renderReport(fullScanReport, 'all');
+    updateScanUI(s);
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.textContent = '✓ Assigner';
+    btn.disabled    = false;
+  }
+}
+
+async function ignoreUnidentified() {
+  const filepath = document.getElementById('assign-filepath').value;
+  await quickIgnore(filepath);
+  closeModal('modal-assign');
+}
+
+async function quickIgnore(filepath) {
+  await api('POST', '/scan/ignore', {filepath});
+  const s = await api('GET', '/scan/status');
+  renderUnidentifiedList(s.unidentified || []);
+  fullScanReport = s.results || [];
+  renderReport(fullScanReport, 'all');
+  updateScanUI(s);
+  toast('Fichier ignoré.', 'info');
+}
+
+function renderReport(results, filter) {
+  // Highlight bouton actif
+  ['all','imported','modified','known','unidentified'].forEach(f => {
+    const el = document.getElementById('rf-' + f);
+    if (el) {
+      el.className = f === filter
+        ? 'btn btn-primary btn-sm'
+        : 'btn btn-secondary btn-sm';
+    }
+  });
+
+  const filtered = filter === 'all' ? results : results.filter(r => r.status === filter);
+  const tbody    = document.getElementById('scan-report-table');
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="padding:30px"><div class="empty-text">Aucune entrée pour ce filtre</div></div></td></tr>`;
+    return;
+  }
+
+  const statusBadge = {
+    imported:     '<span class="badge badge-enabled">Importé</span>',
+    modified:     '<span class="badge badge-warning">Modifié</span>',
+    known:        '<span class="badge badge-disabled">Connu</span>',
+    unidentified: '<span class="badge badge-rg">Non identifié</span>',
+    ignored:      '<span class="badge badge-disabled">Ignoré</span>',
+  };
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td style="font-size:11px;word-break:break-all" title="${r.filepath}">${r.filename}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.size ? (r.size/1e9).toFixed(2)+' GB' : '—'}</td>
+      <td>${r.distro_name || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${r.version ? `<span class="version-tag">${trunc(r.version,20)}</span>` : '—'}</td>
+      <td>${statusBadge[r.status] || r.status}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.note || ''}</td>
+    </tr>`).join('');
+}
+
+function filterReport(f) { renderReport(fullScanReport, f); }
+
+function escJs(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Auto-refresh (ajout scan)
+// ══════════════════════════════════════════════════════════════════════════════
+let scan_state_cached = null;
 setInterval(()=>{
   const id = document.querySelector('.page.active')?.id;
   if (id==='page-dashboard') loadDashboard();

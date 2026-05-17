@@ -324,11 +324,8 @@ def init_db():
         conn.commit()
 
         # ── Distros pré-configurées ───────────────────────────────────────────
-        # FIX Debian : stable = Debian 13 "Trixie" depuis août 2025
-        # On utilise /current/ qui suit toujours la dernière stable
-        # + checker via le fichier Release du miroir officiel
         distros = [
-            # Linux direct
+            # ── Linux ──────────────────────────────────────────────────────────
             ("Ubuntu LTS Server",   "ubuntu-lts",        "linux",   "direct",
              "https://changelogs.ubuntu.com/meta-release-lts",
              "https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-amd64.iso",
@@ -339,13 +336,14 @@ def init_db():
              "https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-amd64.iso",
              r"Version:\s+(\d+\.\d+)"),
 
-            # FIX : Debian — checker sur le fichier Release officiel
-            # Version retourne maintenant "13.4" pour Trixie
-            # URL /current/ suit automatiquement la stable
-            ("Debian Stable",       "debian-stable",     "linux",   "direct",
-             "https://deb.debian.org/debian/dists/stable/Release",
-             "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-{version}-amd64-netinst.iso",
-             r"Version:\s+(\d+\.\d+)"),
+            # FIX Debian : le checker retourne "13.4" mais le fichier ISO
+            # s'appelle "debian-13.4.0-amd64-netinst.iso" (3 chiffres).
+            # On utilise un checker dédié qui résout le nom exact du fichier
+            # depuis l'index /current/ — source = "debian" pour activer ce chemin.
+            ("Debian Stable",       "debian-stable",     "linux",   "debian",
+             "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/",
+             None,   # URL construite dynamiquement par get_latest_debian_stable()
+             None),
 
             ("Fedora Server",       "fedora-server",     "linux",   "direct",
              "https://dl.fedoraproject.org/pub/fedora/linux/releases/",
@@ -357,7 +355,18 @@ def init_db():
              "https://mirror.rackspace.com/archlinux/iso/{version}/archlinux-{version}-x86_64.iso",
              r"Current Release:\s*</strong>\s*(\d{4}\.\d{2}\.\d{2})"),
 
-            # Windows rg-adguard
+            # ── VirtIO drivers (Fedora/Red Hat — URL stable permanente) ────────
+            # La source "virtio" active un checker dédié qui résout le vrai
+            # numéro de version via HEAD sur l'URL de redirection.
+            ("VirtIO Drivers (stable)", "virtio-win-stable", "windows", "virtio",
+             "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso",
+             None, None),
+
+            ("VirtIO Drivers (latest)", "virtio-win-latest", "windows", "virtio",
+             "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso",
+             None, None),
+
+            # ── Windows rg-adguard ─────────────────────────────────────────────
             ("Windows Server 2025", "windows-server-2025","windows","rg-adguard", None, None, None),
             ("Windows Server 2022", "windows-server-2022","windows","rg-adguard", None, None, None),
             ("Windows Server 2019", "windows-server-2019","windows","rg-adguard", None, None, None),
@@ -1023,6 +1032,345 @@ async def test_discord(payload: dict):
 @app.get("/api/rg-sources")
 async def list_rg_sources():
     return [{"slug": s, "name": c["name"]} for s, c in RG_CATEGORIES.items()]
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Module SCAN — bibliothèque locale
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Patterns de reconnaissance automatique par nom de fichier
+# Chaque entrée : (regex sur le nom de fichier) -> {slug, version_group}
+ISO_FILENAME_PATTERNS = [
+    # Debian : debian-13.4-amd64-netinst.iso
+    (re.compile(r'debian-(\d+[\.\d]*)-(?:amd64|arm64|i386)', re.IGNORECASE),
+     "debian-stable"),
+    # Ubuntu server : ubuntu-24.04-live-server-amd64.iso
+    (re.compile(r'ubuntu-(\d+\.\d+(?:\.\d+)?)-(?:live-)?server', re.IGNORECASE),
+     "ubuntu-lts"),
+    # Ubuntu desktop : ubuntu-24.04-desktop-amd64.iso
+    (re.compile(r'ubuntu-(\d+\.\d+(?:\.\d+)?)-desktop', re.IGNORECASE),
+     "ubuntu-desktop-lts"),
+    # Fedora : Fedora-Server-dvd-x86_64-41-1.1.iso
+    (re.compile(r'fedora-server[^\d]*(\d+)', re.IGNORECASE),
+     "fedora-server"),
+    # Arch : archlinux-2025.05.01-x86_64.iso
+    (re.compile(r'archlinux-(\d{4}\.\d{2}\.\d{2})', re.IGNORECASE),
+     "arch-linux"),
+    # Rocky Linux : Rocky-9.3-x86_64-minimal.iso
+    (re.compile(r'rocky-(\d+\.\d+)', re.IGNORECASE),
+     None),  # slug dynamique → "rocky-linux"
+    # AlmaLinux : AlmaLinux-9.3-x86_64-minimal.iso
+    (re.compile(r'almalinux-(\d+\.\d+)', re.IGNORECASE),
+     None),
+    # Windows Server : 17763.xxx.XXXXXX_SERVER_EVAL_x64.iso
+    (re.compile(r'windows.server.*(2019|2022|2025)', re.IGNORECASE),
+     None),  # version = année
+    # Windows 11
+    (re.compile(r'win(?:dows)?[\._\-]?11', re.IGNORECASE),
+     "windows-11"),
+    # Windows 10
+    (re.compile(r'win(?:dows)?[\._\-]?10', re.IGNORECASE),
+     "windows-10"),
+    # Kali
+    (re.compile(r'kali-linux-(\d{4}\.\d+)', re.IGNORECASE),
+     None),
+    # openSUSE
+    (re.compile(r'opensuse-leap-(\d+\.\d+)', re.IGNORECASE),
+     None),
+    # Linux Mint
+    (re.compile(r'linuxmint-(\d+\.\d+)', re.IGNORECASE),
+     None),
+]
+
+# État du scan en cours (partagé entre le thread de scan et l'API)
+scan_state = {
+    "running":     False,
+    "progress":    0,       # 0-100
+    "total_files": 0,
+    "scanned":     0,
+    "found_new":   0,
+    "found_modified": 0,
+    "found_known": 0,
+    "unidentified": [],     # liste des fichiers non reconnus
+    "results":     [],      # rapport complet
+    "started_at":  None,
+    "finished_at": None,
+    "error":       None,
+}
+
+def _identify_iso(filename: str, filepath: Path) -> dict:
+    """
+    Tente d'identifier une ISO depuis son nom de fichier.
+    Retourne {"identified": True/False, "slug": ..., "version": ..., "distro_name": ...}
+    """
+    name = filename.lower()
+    for pattern, slug in ISO_FILENAME_PATTERNS:
+        m = pattern.search(filename)
+        if m:
+            version = m.group(1) if m.lastindex and m.lastindex >= 1 else "unknown"
+            # Cas spéciaux où le slug dépend du contenu
+            if slug is None:
+                if "rocky" in name:
+                    slug = "rocky-linux"
+                elif "alma" in name:
+                    slug = "almalinux"
+                elif "windows" in name and "server" in name:
+                    year = m.group(1) if m.lastindex else "unknown"
+                    slug = f"windows-server-{year}"
+                elif "kali" in name:
+                    slug = "kali-linux"
+                elif "opensuse" in name:
+                    slug = "opensuse-leap"
+                elif "linuxmint" in name or "mint" in name:
+                    slug = "linux-mint"
+                else:
+                    slug = "unknown"
+            return {
+                "identified":   True,
+                "slug":         slug,
+                "version":      version,
+                "distro_name":  slug.replace("-", " ").title(),
+                "confidence":   "auto",
+            }
+    return {
+        "identified":   False,
+        "slug":         None,
+        "version":      None,
+        "distro_name":  None,
+        "confidence":   None,
+    }
+
+def _scan_worker():
+    """Thread de scan : parcourt ISO_DIR et analyse chaque fichier .iso trouvé."""
+    global scan_state
+    scan_state.update({
+        "running": True, "progress": 0, "scanned": 0,
+        "found_new": 0, "found_modified": 0, "found_known": 0,
+        "unidentified": [], "results": [],
+        "started_at": datetime.now().isoformat(),
+        "finished_at": None, "error": None,
+    })
+
+    try:
+        # 1. Lister tous les .iso récursivement
+        all_isos = list(ISO_DIR.rglob("*.iso"))
+        scan_state["total_files"] = len(all_isos)
+        logger.info(f"[scan] {len(all_isos)} fichier(s) ISO trouvé(s)")
+
+        conn = get_db()
+
+        for idx, iso_path in enumerate(all_isos):
+            scan_state["scanned"]  = idx + 1
+            scan_state["progress"] = int((idx + 1) / max(len(all_isos), 1) * 100)
+
+            filename  = iso_path.name
+            filepath  = str(iso_path)
+            size      = iso_path.stat().st_size
+
+            # 2. Vérifier si déjà en base (par chemin)
+            existing = conn.execute(
+                "SELECT * FROM iso_library WHERE filepath=?", (filepath,)
+            ).fetchone()
+
+            if existing:
+                existing = dict(existing)
+                # Comparer la taille pour détecter une modification
+                if existing.get("size_bytes") and existing["size_bytes"] != size:
+                    # Fichier modifié → on marque sans écraser le checksum
+                    conn.execute(
+                        "UPDATE iso_library SET status='modified', size_bytes=? WHERE filepath=?",
+                        (size, filepath)
+                    )
+                    conn.commit()
+                    scan_state["found_modified"] += 1
+                    scan_state["results"].append({
+                        "filepath": filepath, "filename": filename,
+                        "size": size, "status": "modified",
+                        "distro_name": existing.get("distro_name", "?"),
+                        "version": existing.get("version", "?"),
+                        "note": f"Taille changée : {existing['size_bytes']/1e9:.2f} GB → {size/1e9:.2f} GB",
+                    })
+                else:
+                    scan_state["found_known"] += 1
+                    scan_state["results"].append({
+                        "filepath": filepath, "filename": filename,
+                        "size": size, "status": "known",
+                        "version": existing.get("version", "?"),
+                        "note": "Déjà en bibliothèque",
+                    })
+                continue
+
+            # 3. Nouveau fichier — tentative d'identification
+            ident = _identify_iso(filename, iso_path)
+
+            if ident["identified"]:
+                # Calcul SHA-256
+                sha256 = compute_sha256(filepath)
+
+                # Chercher ou créer la distro en base
+                slug = ident["slug"]
+                distro_row = conn.execute(
+                    "SELECT id, name FROM distros WHERE slug=?", (slug,)
+                ).fetchone()
+
+                if distro_row:
+                    distro_id   = distro_row["id"]
+                    distro_name = distro_row["name"]
+                else:
+                    # Créer une distro ad-hoc pour les distros non pré-configurées
+                    display_name = ident["distro_name"]
+                    os_type = "windows" if "windows" in slug else "linux"
+                    conn.execute("""
+                        INSERT OR IGNORE INTO distros (name,slug,type,source,arch,enabled)
+                        VALUES (?,?,'linux','scan','amd64',1)
+                    """, (display_name, slug))
+                    conn.commit()
+                    distro_row  = conn.execute("SELECT id, name FROM distros WHERE slug=?", (slug,)).fetchone()
+                    distro_id   = distro_row["id"]
+                    distro_name = distro_row["name"]
+
+                conn.execute("""
+                    INSERT INTO iso_library
+                      (distro_id, version, arch, filename, filepath, size_bytes,
+                       checksum_sha256, source, status)
+                    VALUES (?,?,?,?,?,?,?,'scan','complete')
+                """, (distro_id, ident["version"], "amd64",
+                      filename, filepath, size, sha256))
+                conn.commit()
+
+                scan_state["found_new"] += 1
+                scan_state["results"].append({
+                    "filepath": filepath, "filename": filename,
+                    "size": size, "status": "imported",
+                    "distro_name": distro_name,
+                    "version": ident["version"],
+                    "slug": slug,
+                    "sha256": sha256,
+                    "note": f"Importé automatiquement (confiance: {ident['confidence']})",
+                })
+            else:
+                # Non identifié → ajout à la liste d'attente manuelle
+                scan_state["found_new"] += 1  # compte comme nouveau à traiter
+                entry = {
+                    "filepath": filepath,
+                    "filename": filename,
+                    "size":     size,
+                    "size_gb":  round(size / 1e9, 2),
+                    "status":   "unidentified",
+                    "note":     "Identification manuelle requise",
+                }
+                scan_state["unidentified"].append(entry)
+                scan_state["results"].append({**entry})
+
+        conn.close()
+        scan_state["progress"]    = 100
+        scan_state["running"]     = False
+        scan_state["finished_at"] = datetime.now().isoformat()
+        logger.info(f"[scan] Terminé — {scan_state['found_new']} nouveaux, "
+                    f"{scan_state['found_modified']} modifiés, "
+                    f"{scan_state['found_known']} déjà connus, "
+                    f"{len(scan_state['unidentified'])} non identifiés")
+
+    except Exception as e:
+        logger.error(f"[scan] Erreur : {e}")
+        scan_state["running"]  = False
+        scan_state["error"]    = str(e)
+        scan_state["finished_at"] = datetime.now().isoformat()
+
+# ── Routes scan ───────────────────────────────────────────────────────────────
+
+@app.post("/api/scan/start")
+async def start_scan():
+    """Lance le scan de la bibliothèque locale en arrière-plan."""
+    if scan_state["running"]:
+        raise HTTPException(409, "Un scan est déjà en cours")
+    threading.Thread(target=_scan_worker, daemon=True).start()
+    return {"status": "started"}
+
+@app.get("/api/scan/status")
+async def get_scan_status():
+    """Retourne l'état courant du scan (progression + résultats partiels)."""
+    return scan_state
+
+@app.post("/api/scan/assign")
+async def assign_unidentified(payload: dict):
+    """
+    Assigne manuellement une distro et une version à un fichier non identifié.
+    payload: { filepath, distro_id, version }
+    """
+    filepath   = payload.get("filepath")
+    distro_id  = payload.get("distro_id")
+    version    = payload.get("version", "unknown")
+
+    if not filepath or not distro_id:
+        raise HTTPException(400, "filepath et distro_id requis")
+
+    iso_path = Path(filepath)
+    if not iso_path.exists():
+        raise HTTPException(404, f"Fichier introuvable : {filepath}")
+
+    conn = get_db()
+    distro = conn.execute("SELECT * FROM distros WHERE id=?", (distro_id,)).fetchone()
+    if not distro:
+        conn.close()
+        raise HTTPException(404, "Distribution introuvable")
+
+    # Vérifier qu'il n'est pas déjà en base
+    existing = conn.execute(
+        "SELECT id FROM iso_library WHERE filepath=?", (filepath,)
+    ).fetchone()
+
+    # Calcul checksum (peut être long pour les grosses ISOs)
+    sha256 = compute_sha256(filepath)
+    size   = iso_path.stat().st_size
+
+    if existing:
+        conn.execute("""
+            UPDATE iso_library
+            SET distro_id=?, version=?, checksum_sha256=?, size_bytes=?,
+                source='scan', status='complete'
+            WHERE filepath=?
+        """, (distro_id, version, sha256, size, filepath))
+    else:
+        conn.execute("""
+            INSERT INTO iso_library
+              (distro_id, version, arch, filename, filepath, size_bytes,
+               checksum_sha256, source, status)
+            VALUES (?,?,?,?,?,?,?,'scan','complete')
+        """, (distro_id, version, distro["arch"], iso_path.name,
+              filepath, size, sha256))
+
+    conn.commit()
+    conn.close()
+
+    # Retirer de la liste des non-identifiés
+    scan_state["unidentified"] = [
+        x for x in scan_state["unidentified"] if x["filepath"] != filepath
+    ]
+    # Mettre à jour dans results
+    for r in scan_state["results"]:
+        if r["filepath"] == filepath:
+            r["status"]      = "imported"
+            r["distro_name"] = distro["name"]
+            r["version"]     = version
+            r["sha256"]      = sha256
+            r["note"]        = "Assigné manuellement"
+
+    return {"status": "ok", "sha256": sha256, "size_gb": round(size/1e9, 2)}
+
+@app.post("/api/scan/ignore")
+async def ignore_unidentified(payload: dict):
+    """Ignore définitivement un fichier non identifié (le retire de la liste)."""
+    filepath = payload.get("filepath")
+    if not filepath:
+        raise HTTPException(400, "filepath requis")
+    scan_state["unidentified"] = [
+        x for x in scan_state["unidentified"] if x["filepath"] != filepath
+    ]
+    for r in scan_state["results"]:
+        if r["filepath"] == filepath:
+            r["status"] = "ignored"
+            r["note"]   = "Ignoré manuellement"
+    return {"status": "ok"}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Startup
