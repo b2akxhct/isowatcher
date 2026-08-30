@@ -1,3 +1,7 @@
+English version here --> https://github.com/b2akxhct/isowatcher/blob/master/EN_README.md
+
+---
+
 # ISOWatcher v2.0
 
 Gestionnaire de bibliothèque ISO auto-hébergé. Surveille les nouvelles versions des distributions Linux et Windows, les télécharge automatiquement, vérifie les checksums, notifie via Discord, et synchronise la bibliothèque avec Proxmox via SSH.
