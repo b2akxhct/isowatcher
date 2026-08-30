@@ -24,7 +24,7 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="ISOWatcher", version="1.2.0")
+app = FastAPI(title="ISOWatcher", version="2.0.0")
 app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 templates = Jinja2Templates(directory="/app/templates")
 
@@ -204,58 +204,111 @@ async def rg_resolve_latest(slug: str) -> Optional[dict]:
 ARCHIVE_SOURCES = {
     "debian": {
         "name": "Debian",
-        "ftp_index": "https://cdimage.debian.org/cdimage/archive/",
-        "version_pattern": r'href="(\d+\.\d+(?:\.\d+)?)/?"',
-        "iso_url_template": "https://cdimage.debian.org/cdimage/archive/{version}/amd64/iso-cd/debian-{version}-amd64-netinst.iso",
-        "current_url":      "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/",
-        "current_pattern":  r'href="(debian-[\d\.]+\-amd64-netinst\.iso)"',
+        # Archive Bookworm (12.x) + Trixie (13.x) quand disponible
+        "ftp_indexes": [
+            "https://cdimage.debian.org/cdimage/archive/",          # anciennes stables
+            "https://cdimage.debian.org/debian-cd/",                # releases récentes
+        ],
+        "version_pattern": r'href="(\d+\.\d+\.\d+)/"',
+        "iso_url_fn": lambda v: (
+            f"https://cdimage.debian.org/cdimage/archive/{v}/amd64/iso-cd/debian-{v}-amd64-netinst.iso"
+            if not v.startswith("13")
+            else f"https://cdimage.debian.org/debian-cd/{v}/amd64/iso-cd/debian-{v}-amd64-netinst.iso"
+        ),
     },
     "ubuntu": {
         "name": "Ubuntu",
-        "ftp_index": "https://old-releases.ubuntu.com/releases/",
-        "version_pattern": r'href="(\d+\.\d+(?:\.\d+)?)/?"',
-        "iso_url_template": "https://old-releases.ubuntu.com/releases/{version}/ubuntu-{version}-live-server-amd64.iso",
-        "current_url":      "https://releases.ubuntu.com/",
-        "current_pattern":  r'href="(\d+\.\d+)/?"',
+        "ftp_indexes": [
+            "https://old-releases.ubuntu.com/releases/",
+            "https://releases.ubuntu.com/",
+        ],
+        "version_pattern": r'href="(\d+\.\d+(?:\.\d+)?)/"',
+        "iso_url_fn": lambda v: (
+            f"https://old-releases.ubuntu.com/releases/{v}/ubuntu-{v}-live-server-amd64.iso"
+            if tuple(int(x) for x in v.split(".")[:2]) < (22, 4)
+            else f"https://releases.ubuntu.com/{v}/ubuntu-{v}-live-server-amd64.iso"
+        ),
     },
     "fedora": {
         "name": "Fedora",
-        "ftp_index": "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/",
-        "version_pattern": r'href="(\d+)/?"',
-        "iso_url_template": "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/{version}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}-1.1.iso",
-        "current_url":      "https://dl.fedoraproject.org/pub/fedora/linux/releases/",
-        "current_pattern":  r'href="(\d+)/?"',
+        "ftp_indexes": [
+            "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/",
+            "https://dl.fedoraproject.org/pub/fedora/linux/releases/",
+        ],
+        "version_pattern": r'href="(\d{2,3})/"',
+        # URL dynamique : on scrape l'index ISO pour trouver le vrai nom de fichier
+        "iso_url_fn": None,  # géré séparément par fetch_fedora_iso_url()
     },
     "arch": {
         "name": "Arch Linux",
-        "ftp_index": "https://archive.archlinux.org/iso/",
-        "version_pattern": r'href="(\d{4}\.\d{2}\.\d{2})/?"',
-        "iso_url_template": "https://archive.archlinux.org/iso/{version}/archlinux-{version}-x86_64.iso",
-        "current_url":      "https://mirror.rackspace.com/archlinux/iso/latest/",
-        "current_pattern":  r'href="(archlinux-[\d\.]+-x86_64\.iso)"',
+        "ftp_indexes": [
+            "https://archive.archlinux.org/iso/",
+        ],
+        "version_pattern": r'href="(\d{4}\.\d{2}\.\d{2})/"',
+        "iso_url_fn": lambda v: f"https://archive.archlinux.org/iso/{v}/archlinux-{v}-x86_64.iso",
     },
 }
 
-async def fetch_archive_versions(distro_key: str, limit: int = 20) -> list:
+async def fetch_fedora_iso_url(version: str) -> Optional[str]:
+    """Scrape le répertoire ISO Fedora pour trouver le vrai nom de fichier."""
+    bases = [
+        f"https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/{version}/Server/x86_64/iso/",
+        f"https://dl.fedoraproject.org/pub/fedora/linux/releases/{version}/Server/x86_64/iso/",
+    ]
+    for base in bases:
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True,
+                                          headers={"User-Agent": "ISOWatcher/1.3"}) as client:
+                r = await client.get(base)
+                m = re.search(r'href="(Fedora-Server-(?:dvd|netinst)-x86_64-[\d\.]+-[\d\.]+\.iso)"',
+                               r.text, re.IGNORECASE)
+                if m:
+                    return base + m.group(1)
+        except Exception:
+            continue
+    return None
+
+async def fetch_archive_versions(distro_key: str, limit: int = 50) -> list:
     """Récupère les versions historiques disponibles sur les FTP officiels."""
     src = ARCHIVE_SOURCES.get(distro_key)
     if not src:
         return []
-    try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-            r = await client.get(src["ftp_index"])
-            versions = re.findall(src["version_pattern"], r.text)
-            # Dédoublonner et trier décroissant
-            seen = set()
-            unique = []
-            for v in reversed(versions):
-                if v not in seen:
-                    seen.add(v)
-                    unique.append(v)
-            return unique[:limit]
-    except Exception as e:
-        logger.error(f"Archive fetch {distro_key}: {e}")
-        return []
+    seen, unique = set(), []
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True,
+                                  headers={"User-Agent": "ISOWatcher/1.3"}) as client:
+        for index_url in src["ftp_indexes"]:
+            try:
+                r = await client.get(index_url)
+                versions = re.findall(src["version_pattern"], r.text)
+                for v in versions:
+                    if v not in seen:
+                        seen.add(v)
+                        unique.append(v)
+            except Exception as e:
+                logger.warning(f"Archive fetch {distro_key} ({index_url}): {e}")
+
+    # Tri décroissant selon le type de version
+    def sort_key(v):
+        try:
+            return tuple(int(x) for x in v.replace("-", ".").split("."))
+        except Exception:
+            return (0,)
+    unique.sort(key=sort_key, reverse=True)
+    return unique[:limit]
+
+async def resolve_archive_url(distro_key: str, version: str) -> Optional[str]:
+    """Résout l'URL de téléchargement pour une version d'archive."""
+    src = ARCHIVE_SOURCES.get(distro_key)
+    if not src:
+        return None
+    if distro_key == "fedora":
+        return await fetch_fedora_iso_url(version)
+    if src.get("iso_url_fn"):
+        try:
+            return src["iso_url_fn"](version)
+        except Exception as e:
+            logger.error(f"Archive URL build {distro_key} {version}: {e}")
+    return None
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Base de données (CIFS-safe — journal DELETE + timeout 30s)
@@ -320,6 +373,13 @@ def init_db():
             INSERT OR IGNORE INTO settings VALUES ('schedule_days',    'mon');
             INSERT OR IGNORE INTO settings VALUES ('discord_webhook',  '');
             INSERT OR IGNORE INTO settings VALUES ('check_frequency',  'weekly');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_host',         '');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_user',         'root');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_port',         '22');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_key_path',     '/data/ssh/id_rsa');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_script_path',  '/mnt/user/isos/isowatcher/sync_symlinks.sh');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_source_dir',   '/mnt/user/isos/isos');
+            INSERT OR IGNORE INTO settings VALUES ('ssh_dest_dir',     '/mnt/user/isos/proxmox-view/template/iso');
         """)
         conn.commit()
 
@@ -345,10 +405,13 @@ def init_db():
              None,   # URL construite dynamiquement par get_latest_debian_stable()
              None),
 
-            ("Fedora Server",       "fedora-server",     "linux",   "direct",
+            # FIX Fedora : source="fedora" active get_latest_fedora() qui scrappe
+            # l'index du répertoire ISO pour trouver le vrai nom de fichier.
+            # Le template hardcodé avec -1.1 est faux pour Fedora 42+ (peut être -1.2 etc.)
+            ("Fedora Server",       "fedora-server",     "linux",   "fedora",
              "https://dl.fedoraproject.org/pub/fedora/linux/releases/",
-             "https://dl.fedoraproject.org/pub/fedora/linux/releases/{version}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}-1.1.iso",
-             r'href="(\d{2})/?"'),
+             None,   # URL construite dynamiquement par get_latest_fedora()
+             None),
 
             ("Arch Linux",          "arch-linux",        "linux",   "direct",
              "https://archlinux.org/download/",
@@ -379,6 +442,19 @@ def init_db():
                 VALUES (?,?,?,?,?,?,?)
             """, d)
         conn.commit()
+
+        # ── Migration sources : mettre à jour les distros existantes ──────────
+        # Fedora : passer de 'direct' à 'fedora' pour activer le scraping d'index
+        conn.execute("""
+            UPDATE distros SET source='fedora', download_url_template=NULL, version_pattern=NULL
+            WHERE slug='fedora-server' AND source='direct'
+        """)
+        # Debian : passer de 'direct' à 'debian' pour activer le scraping d'index
+        conn.execute("""
+            UPDATE distros SET source='debian', download_url_template=NULL, version_pattern=NULL
+            WHERE slug='debian-stable' AND source='direct'
+        """)
+        conn.commit()
         logger.info("DB initialisée avec succès.")
     except Exception as e:
         logger.error(f"Erreur init DB (CIFS lock?): {e}")
@@ -401,35 +477,78 @@ async def get_latest_ubuntu_lts() -> Optional[str]:
         logger.error(f"Ubuntu check: {e}")
     return None
 
-async def get_latest_debian_stable() -> Optional[str]:
+async def get_latest_debian_stable() -> Optional[dict]:
     """
-    FIX : Récupère la version depuis le fichier Release du miroir Debian.
-    Debian 13 (Trixie) = 13.4 en mars 2026.
-    Renvoie ex: '13.4'
+    FIX COMPLET : Scrape l'index /current/ pour trouver le vrai nom de fichier ISO
+    (ex: debian-13.4.0-amd64-netinst.iso) sans le construire manuellement.
+    Retourne {"version": "13.4.0", "url": "https://...", "filename": "debian-...iso"}
     """
-    urls = [
-        "https://deb.debian.org/debian/dists/stable/Release",
-        "https://ftp.debian.org/debian/dists/stable/Release",
-    ]
-    for url in urls:
+    index_url = "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/"
+    fallback   = "https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/"
+    for url in [index_url, fallback]:
         try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True,
+                                          headers={"User-Agent": "ISOWatcher/1.3"}) as client:
                 r = await client.get(url)
-                m = re.search(r"^Version:\s+(\d+\.\d+)", r.text, re.MULTILINE)
+                # Trouver le fichier netinst amd64 directement dans la liste
+                m = re.search(r'href="(debian-(\d+\.\d+(?:\.\d+)?)-amd64-netinst\.iso)"',
+                               r.text, re.IGNORECASE)
                 if m:
-                    return m.group(1)
+                    filename = m.group(1)
+                    version  = m.group(2)
+                    return {
+                        "version":  version,
+                        "url":      url + filename,
+                        "filename": filename,
+                    }
         except Exception as e:
-            logger.warning(f"Debian check ({url}): {e}")
+            logger.warning(f"Debian index check ({url}): {e}")
     return None
 
-async def get_latest_fedora() -> Optional[str]:
-    """Scrape le FTP Fedora pour trouver la dernière version stable."""
+async def get_latest_fedora() -> Optional[dict]:
+    """
+    FIX COMPLET : Détecte le dernier Fedora ET scrape l'index du répertoire ISO
+    pour trouver le vrai nom de fichier (ex: Fedora-Server-dvd-x86_64-44-1.1.iso).
+    Retourne {"version": "44", "url": "https://...", "filename": "Fedora-...iso"}
+    """
+    base = "https://dl.fedoraproject.org/pub/fedora/linux/releases/"
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            r = await client.get("https://dl.fedoraproject.org/pub/fedora/linux/releases/")
-            versions = re.findall(r'href="(\d{2,3})/?"', r.text)
-            if versions:
-                return sorted(versions, key=int)[-1]
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True,
+                                      headers={"User-Agent": "ISOWatcher/1.3"}) as client:
+            # 1. Trouver la dernière version
+            r = await client.get(base)
+            versions = re.findall(r'href="(\d{2,3})/"', r.text)
+            if not versions:
+                return None
+            latest = sorted(versions, key=int)[-1]
+
+            # 2. Scraper le répertoire ISO pour trouver le vrai nom de fichier
+            iso_index = f"{base}{latest}/Server/x86_64/iso/"
+            r2 = await client.get(iso_index)
+            # Chercher le DVD server (pas le netinst)
+            m = re.search(
+                r'href="(Fedora-Server-dvd-x86_64-[\d\.]+-[\d\.]+\.iso)"',
+                r2.text, re.IGNORECASE
+            )
+            if m:
+                filename = m.group(1)
+                return {
+                    "version":  latest,
+                    "url":      iso_index + filename,
+                    "filename": filename,
+                }
+            # Fallback : netinst si pas de DVD
+            m2 = re.search(
+                r'href="(Fedora-Server-netinst-x86_64-[\d\.]+-[\d\.]+\.iso)"',
+                r2.text, re.IGNORECASE
+            )
+            if m2:
+                filename = m2.group(1)
+                return {
+                    "version":  latest,
+                    "url":      iso_index + filename,
+                    "filename": filename,
+                }
     except Exception as e:
         logger.error(f"Fedora check: {e}")
     return None
@@ -452,20 +571,26 @@ async def get_latest_arch() -> Optional[str]:
     return None
 
 async def get_latest_version(distro: sqlite3.Row) -> Optional[str]:
+    """Retourne uniquement la version string."""
     slug   = distro["slug"]
     source = distro["source"] if "source" in distro.keys() else "direct"
 
     if source == "rg-adguard":
         meta = await rg_resolve_latest(slug)
         return meta["version_label"] if meta else None
+    if source == "virtio":
+        meta = await get_latest_virtio(distro["check_url"])
+        return meta["version"] if meta else None
+    if source == "debian":
+        meta = await get_latest_debian_stable()
+        return meta["version"] if meta else None
+    if source == "fedora":
+        meta = await get_latest_fedora()
+        return meta["version"] if meta else None
 
-    # Checkers dédiés
+    # Checkers par slug pour les distros "direct"
     if slug in ("ubuntu-lts", "ubuntu-desktop-lts"):
         return await get_latest_ubuntu_lts()
-    if slug == "debian-stable":
-        return await get_latest_debian_stable()
-    if slug == "fedora-server":
-        return await get_latest_fedora()
     if slug == "arch-linux":
         return await get_latest_arch()
 
@@ -481,10 +606,47 @@ async def get_latest_version(distro: sqlite3.Row) -> Optional[str]:
             logger.error(f"Generic check {slug}: {e}")
     return None
 
+async def resolve_download_url(distro: sqlite3.Row, version: str) -> Optional[str]:
+    """
+    Résout l'URL de téléchargement réelle selon la source.
+    Debian et Fedora re-scrappent l'index pour avoir le nom de fichier exact.
+    """
+    slug   = distro["slug"]
+    source = distro["source"] if "source" in distro.keys() else "direct"
+
+    if source == "virtio":
+        meta = await get_latest_virtio(distro["check_url"])
+        return meta["url"] if meta else None
+    if source == "debian":
+        meta = await get_latest_debian_stable()
+        return meta["url"] if meta else None
+    if source == "fedora":
+        meta = await get_latest_fedora()
+        return meta["url"] if meta else None
+
+    return build_download_url(distro, version)
+
 def build_download_url(distro: sqlite3.Row, version: str) -> Optional[str]:
     if not distro["download_url_template"]:
         return None
     return distro["download_url_template"].replace("{version}", version)
+
+async def get_latest_virtio(stable_url: str) -> Optional[dict]:
+    """
+    Résout la version réelle de virtio-win en suivant la redirection HTTP.
+    L'URL stable/latest redirige vers le vrai fichier versionné.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True,
+                                      headers={"User-Agent": "ISOWatcher/1.3"}) as client:
+            r = await client.head(stable_url)
+            final_url = str(r.url)
+            m = re.search(r'virtio-win-([\d\.]+)\.iso', final_url, re.IGNORECASE)
+            version = m.group(1) if m else "latest"
+            return {"version": version, "url": final_url}
+    except Exception as e:
+        logger.error(f"VirtIO check: {e}")
+    return None
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Downloader
@@ -575,11 +737,15 @@ def download_iso_sync(distro_id: int, version: str, url: str, track_id: str,
         download_progress[track_id]["percent"] = 100
         if msg: download_progress[track_id]["warning"] = msg
 
-        # FIX Discord : récupérer le webhook AVANT de fermer la connexion
+        # FIX Discord
         settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
         webhook  = settings.get("discord_webhook", "").strip()
         if webhook:
             _discord_downloaded(webhook, distro["name"], version, filename, size, ok, source)
+
+        # Sync proxmox-view via SSH après chaque téléchargement
+        # (non bloquant — s'exécute en arrière-plan)
+        threading.Thread(target=sync_via_ssh, daemon=True).start()
 
     except Exception as e:
         logger.error(f"Download error: {e}")
@@ -632,7 +798,7 @@ def _discord_downloaded(webhook, name, version, filename, size, ok=True, source=
             {"name": "Checksum",     "value": "✅ OK" if ok else "⚠️ Divergence", "inline": True},
         ],
         "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "footer": {"text": "ISOWatcher v1.2"},
+        "footer": {"text": "ISOWatcher v2.0"},
     }]})
 
 def _discord_new_version(webhook, name, version, info_url):
@@ -640,7 +806,7 @@ def _discord_new_version(webhook, name, version, info_url):
         "description": f"**{name}** — `{version}`\nURL directe non résolue automatiquement.\n[Voir sur rg-adguard]({info_url})",
         "color": 0x7c3aed,
         "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "footer": {"text": "ISOWatcher v1.2"},
+        "footer": {"text": "ISOWatcher v2.0"},
     }]})
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -695,7 +861,10 @@ async def _check_rg(distro):
                 "source": "rg-adguard"}, daemon=True).start()
 
 async def _check_direct(distro):
-    if not distro["download_url_template"]:
+    source = distro["source"] if "source" in distro.keys() else "direct"
+    # Sources qui n'ont pas de template mais un checker dédié
+    dynamic_sources = ("virtio", "debian", "fedora")
+    if source not in dynamic_sources and not distro["download_url_template"]:
         return
     latest = await get_latest_version(distro)
     if not latest:
@@ -709,13 +878,14 @@ async def _check_direct(distro):
     conn.commit(); conn.close()
     if existing:
         return
-    url = build_download_url(distro, latest)
+    url = await resolve_download_url(distro, latest)
     if not url:
         return
+    src_label = source if source in ("virtio", "archive", "fedora", "debian") else "direct"
     tid = f"{distro['slug']}-{latest}-{datetime.now().strftime('%H%M%S')}"
     threading.Thread(target=download_iso_sync,
         args=(distro["id"], latest, url, tid),
-        kwargs={"source": "direct"}, daemon=True).start()
+        kwargs={"source": src_label}, daemon=True).start()
 
 def run_check():
     asyncio.run(check_and_download_all())
@@ -849,33 +1019,39 @@ async def get_library():
 # ── Archive (FTP historique) ─────────────────────────────────────────────────
 
 @app.get("/api/archive/{distro_key}")
-async def get_archive_versions(distro_key: str, limit: int = 20):
+async def get_archive_versions(distro_key: str, limit: int = 50):
     """Retourne les versions historiques disponibles sur le FTP officiel."""
     src = ARCHIVE_SOURCES.get(distro_key)
     if not src:
         raise HTTPException(404, f"Clé archive inconnue : {distro_key}")
     versions = await fetch_archive_versions(distro_key, limit)
     return {
-        "distro_key":  distro_key,
-        "name":        src["name"],
-        "ftp_index":   src["ftp_index"],
-        "versions":    versions,
-        "url_template": src["iso_url_template"],
+        "distro_key": distro_key,
+        "name":       src["name"],
+        "ftp_index":  src["ftp_indexes"][0],
+        "versions":   versions,
     }
 
 @app.get("/api/archive")
 async def list_archive_sources():
     """Liste toutes les sources d'archive disponibles."""
-    return [{"key": k, "name": v["name"], "ftp_index": v["ftp_index"]}
+    return [{"key": k, "name": v["name"], "ftp_index": v["ftp_indexes"][0]}
             for k, v in ARCHIVE_SOURCES.items()]
+
+@app.get("/api/archive/{distro_key}/{version}/url")
+async def get_archive_url(distro_key: str, version: str):
+    """Résout l'URL de téléchargement pour une version d'archive spécifique."""
+    url = await resolve_archive_url(distro_key, version)
+    if not url:
+        raise HTTPException(404, f"URL introuvable pour {distro_key} {version}")
+    return {"url": url, "distro_key": distro_key, "version": version}
 
 @app.post("/api/archive/download")
 async def download_archive_iso(payload: dict):
-    """Télécharge une ISO d'archive. Le frontend calcule l'URL via url_template."""
+    """Télécharge une ISO d'archive."""
     distro_key = payload.get("distro_key")
     version    = payload.get("version")
     url        = payload.get("url")
-    distro_id  = payload.get("distro_id")  # peut être None → on crée une entrée ad-hoc
 
     if not all([distro_key, version, url]):
         raise HTTPException(400, "distro_key, version, url requis")
@@ -885,13 +1061,11 @@ async def download_archive_iso(payload: dict):
         raise HTTPException(404, "Source archive inconnue")
 
     conn = get_db()
-    # Chercher une distro existante avec le bon slug ou en créer une temporaire
     existing_distro = conn.execute(
         "SELECT id FROM distros WHERE slug=?", (distro_key,)).fetchone()
     if existing_distro:
         did = existing_distro["id"]
     else:
-        # Créer une entrée distro ad-hoc pour l'archive
         conn.execute("""
             INSERT OR IGNORE INTO distros (name,slug,type,source,arch)
             VALUES (?,?,'linux','archive','amd64')
@@ -1009,11 +1183,11 @@ async def test_discord(payload: dict):
         raise HTTPException(400, "webhook_url requis")
     # FIX : test synchrone avec retour d'erreur détaillé
     try:
-        p = {"embeds": [{"title": "🔔 Test ISOWatcher v1.2",
+        p = {"embeds": [{"title": "🔔 Test ISOWatcher v2.0",
             "description": "✅ Notifications Discord opérationnelles !",
             "color": 0x00b4d8,
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "footer": {"text": "ISOWatcher v1.2"}}]}
+            "footer": {"text": "ISOWatcher v2.0"}}]}
         data = json.dumps(p, ensure_ascii=False).encode("utf-8")
         req  = urllib.request.Request(
             webhook, data=data,
@@ -1359,7 +1533,7 @@ async def assign_unidentified(payload: dict):
 
 @app.post("/api/scan/ignore")
 async def ignore_unidentified(payload: dict):
-    """Ignore définitivement un fichier non identifié (le retire de la liste)."""
+    """Ignore définitivement un fichier non identifié."""
     filepath = payload.get("filepath")
     if not filepath:
         raise HTTPException(400, "filepath requis")
@@ -1372,13 +1546,360 @@ async def ignore_unidentified(payload: dict):
             r["note"]   = "Ignoré manuellement"
     return {"status": "ok"}
 
+@app.post("/api/scan/create-category")
+async def create_category(payload: dict):
+    """
+    Crée une nouvelle catégorie (distribution) à la volée depuis le scan.
+    payload: { name, slug, type, arch }
+    Retourne { status, id, name, slug }
+    """
+    name = payload.get("name", "").strip()
+    slug = payload.get("slug", "").strip()
+    typ  = payload.get("type", "linux")
+    arch = payload.get("arch", "amd64")
+
+    if not name or not slug:
+        raise HTTPException(400, "name et slug requis")
+
+    slug = re.sub(r'[^a-z0-9\-]', '-', slug.lower()).strip('-')
+
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id, name FROM distros WHERE slug=?", (slug,)
+        ).fetchone()
+        if existing:
+            conn.close()
+            return {"status": "existing", "id": existing["id"],
+                    "name": existing["name"],
+                    "message": f"Catégorie '{existing['name']}' déjà existante"}
+
+        conn.execute("""
+            INSERT INTO distros (name, slug, type, source, arch, enabled)
+            VALUES (?, ?, ?, 'scan', ?, 1)
+        """, (name, slug, typ, arch))
+        conn.commit()
+        new_id = conn.execute(
+            "SELECT id FROM distros WHERE slug=?", (slug,)
+        ).fetchone()["id"]
+        conn.close()
+        logger.info(f"[scan] Catégorie créée : {name} ({slug}) id={new_id}")
+        return {"status": "created", "id": new_id, "name": name, "slug": slug}
+    except Exception as e:
+        conn.close()
+        raise HTTPException(400, str(e))
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Module PROXMOX VIEW — intégration Proxmox via SSH + script bash sur Unraid
+#
+#  POURQUOI SSH :
+#    Tout est sur CIFS/SMB (Unraid). CIFS ne supporte pas les symlinks côté
+#    client (Errno 95, os.link, ln -s… tout échoue depuis Docker/LXC).
+#    La solution : exécuter le script de création de symlinks DIRECTEMENT
+#    sur Unraid via SSH. Unraid utilise XFS natif → symlinks parfaitement
+#    supportés. Python n'est qu'un déclencheur SSH.
+#
+#  FLUX :
+#    ISOWatcher (Docker/LXC) → SSH → Unraid → sync_symlinks.sh → XFS → symlinks
+#    Proxmox → montage CIFS proxmox-view → voit les symlinks comme des .iso
+#
+#  PRÉ-REQUIS :
+#    1. Clé SSH générée et déposée sur Unraid (voir page Proxmox Sync)
+#    2. sync_symlinks.sh copié sur Unraid (fourni dans le zip)
+#    3. SSH configuré dans les paramètres ISOWatcher
+# ══════════════════════════════════════════════════════════════════════════════
+
+import subprocess
+
+def _get_ssh_settings() -> dict:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT key, value FROM settings WHERE key LIKE 'ssh_%'"
+    ).fetchall()
+    conn.close()
+    return {r["key"]: r["value"] for r in rows}
+
+def _test_ssh(cfg: dict) -> tuple[bool, str]:
+    """Teste la connexion SSH vers Unraid. Retourne (ok, message)."""
+    host = cfg.get("ssh_host", "").strip()
+    if not host:
+        return False, "Adresse IP Unraid non configurée"
+    user = cfg.get("ssh_user", "root").strip() or "root"
+    port = cfg.get("ssh_port", "22").strip() or "22"
+    key  = cfg.get("ssh_key_path", "").strip()
+
+    cmd = ["ssh",
+           "-o", "StrictHostKeyChecking=no",
+           "-o", "ConnectTimeout=10",
+           "-o", "BatchMode=yes",
+           "-p", port]
+    if key and Path(key).exists():
+        cmd += ["-i", key]
+    cmd += [f"{user}@{host}", "echo OK"]
+
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if r.returncode == 0 and "OK" in r.stdout:
+            return True, "Connexion SSH réussie"
+        return False, r.stderr.strip() or f"Code retour SSH : {r.returncode}"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout SSH (10s)"
+    except Exception as e:
+        return False, str(e)
+
+def sync_via_ssh() -> dict:
+    """
+    Déclenche sync_symlinks.sh sur Unraid via SSH.
+    Retourne un rapport JSON.
+    """
+    cfg     = _get_ssh_settings()
+    host    = cfg.get("ssh_host", "").strip()
+    user    = cfg.get("ssh_user", "root").strip() or "root"
+    port    = cfg.get("ssh_port", "22").strip() or "22"
+    key     = cfg.get("ssh_key_path", "").strip()
+    script  = cfg.get("ssh_script_path", "").strip()
+    src_dir = cfg.get("ssh_source_dir", "").strip()
+    dst_dir = cfg.get("ssh_dest_dir", "").strip()
+
+    if not host:
+        return {"error": "SSH non configuré — renseignez l'IP Unraid dans les paramètres",
+                "created": 0, "updated": 0, "skipped": 0, "removed": 0, "conflicts": 0}
+    if not script:
+        return {"error": "Chemin du script non configuré",
+                "created": 0, "updated": 0, "skipped": 0, "removed": 0, "conflicts": 0}
+
+    # Construire la commande SSH
+    ssh_cmd = ["ssh",
+               "-o", "StrictHostKeyChecking=no",
+               "-o", "ConnectTimeout=15",
+               "-o", "BatchMode=yes",
+               "-p", port]
+    if key and Path(key).exists():
+        ssh_cmd += ["-i", key]
+    ssh_cmd.append(f"{user}@{host}")
+
+    # Passer les dossiers en variables d'env pour le script
+    env_prefix = ""
+    if src_dir:
+        env_prefix += f"ISOWATCHER_SOURCE_DIR='{src_dir}' "
+    if dst_dir:
+        env_prefix += f"ISOWATCHER_DEST_DIR='{dst_dir}' "
+
+    ssh_cmd.append(f"bash {script} {env_prefix}".strip() if not env_prefix else
+                   f"{env_prefix} bash {script}")
+
+    try:
+        logger.info(f"[proxmox] SSH sync → {user}@{host}:{port} : {script}")
+        r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=300)
+
+        stdout = r.stdout
+        stderr = r.stderr.strip()
+
+        if r.returncode != 0:
+            return {"error": f"Script SSH échoué (code {r.returncode}) : {stderr}",
+                    "stdout": stdout, "created": 0, "updated": 0,
+                    "skipped": 0, "removed": 0, "conflicts": 0}
+
+        # Parser le résultat JSON émis par le script
+        result = {"created": 0, "updated": 0, "skipped": 0,
+                  "removed": 0, "conflicts": 0, "stdout": stdout}
+        for line in stdout.splitlines():
+            if line.startswith("JSON_RESULT:"):
+                try:
+                    data = json.loads(line[len("JSON_RESULT:"):])
+                    result.update(data)
+                except Exception:
+                    pass
+                break
+
+        logger.info(f"[proxmox] SSH sync OK : {result}")
+        return result
+
+    except subprocess.TimeoutExpired:
+        return {"error": "Timeout SSH (5min) — vérifiez la connexion réseau",
+                "created": 0, "updated": 0, "skipped": 0, "removed": 0, "conflicts": 0}
+    except Exception as e:
+        return {"error": str(e),
+                "created": 0, "updated": 0, "skipped": 0, "removed": 0, "conflicts": 0}
+
+def _generate_ssh_key(key_path: str) -> tuple[bool, str]:
+    """Génère une paire de clés SSH si elle n'existe pas."""
+    key_file = Path(key_path)
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    if key_file.exists():
+        # Lire la clé publique existante
+        pub = key_file.with_suffix(".pub")
+        if pub.exists():
+            return True, pub.read_text().strip()
+        return True, "Clé privée existante (clé publique introuvable)"
+    try:
+        r = subprocess.run(
+            ["ssh-keygen", "-t", "rsa", "-b", "4096",
+             "-f", str(key_file), "-N", "", "-C", "isowatcher@proxmox"],
+            capture_output=True, text=True, timeout=30
+        )
+        if r.returncode == 0:
+            pub = key_file.with_suffix(".pub")
+            return True, pub.read_text().strip() if pub.exists() else "Clé générée"
+        return False, r.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+def repair_db_paths() -> dict:
+    """Répare les entrées DB dont le filepath est introuvable sur disque."""
+    conn  = get_db()
+    isos  = conn.execute("SELECT * FROM iso_library").fetchall()
+    fixed, missing_marked, not_found = 0, 0, []
+    for iso in isos:
+        src = Path(iso["filepath"])
+        if src.exists():
+            continue
+        found = list(ISO_DIR.rglob(iso["filename"]))
+        if found:
+            conn.execute("UPDATE iso_library SET filepath=? WHERE id=?",
+                         (str(found[0]), iso["id"]))
+            fixed += 1
+            logger.info(f"[repair] {iso['filepath']} → {found[0]}")
+        else:
+            conn.execute("UPDATE iso_library SET status='missing' WHERE id=?", (iso["id"],))
+            missing_marked += 1
+            not_found.append({"filename": iso["filename"], "old_path": iso["filepath"]})
+            logger.warning(f"[repair] Introuvable : {iso['filepath']}")
+    conn.commit()
+    conn.close()
+    return {"fixed": fixed, "missing_marked": missing_marked, "not_found": not_found}
+
+# ── Routes proxmox / SSH ──────────────────────────────────────────────────────
+
+@app.post("/api/symlinks/sync")
+async def trigger_sync():
+    """Déclenche sync_symlinks.sh sur Unraid via SSH."""
+    report = sync_via_ssh()
+    return report
+
+def _remote_ls_proxmox_view(cfg: dict) -> list:
+    """
+    Liste le contenu réel du dossier proxmox-view SUR UNRAID via SSH.
+    Remplace l'ancienne lecture d'un dossier local qui n'existe plus
+    dans l'architecture SSH (rien n'écrit en local dans le container).
+    """
+    host = cfg.get("ssh_host", "").strip()
+    dest = cfg.get("ssh_dest_dir", "").strip()
+    if not host or not dest:
+        return []
+    user = cfg.get("ssh_user", "root").strip() or "root"
+    port = cfg.get("ssh_port", "22").strip() or "22"
+    key  = cfg.get("ssh_key_path", "").strip()
+
+    ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
+               "-o", "BatchMode=yes", "-p", port]
+    if key and Path(key).exists():
+        ssh_cmd += ["-i", key]
+    # -L : suit les symlinks pour donner la vraie taille du fichier cible
+    ssh_cmd += [f"{user}@{host}",
+                f"find '{dest}' -maxdepth 1 -iname '*.iso' -printf '%f\\t%s\\t%l\\n' 2>/dev/null"]
+    try:
+        r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=20)
+        if r.returncode != 0:
+            return []
+        entries = []
+        for line in r.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+            name = parts[0]
+            try:
+                size = int(parts[1])
+            except ValueError:
+                size = 0
+            is_link = len(parts) > 2 and bool(parts[2])
+            entries.append({
+                "name":       name,
+                "size_gb":    round(size / 1e9, 2),
+                "is_symlink": is_link,
+                "broken":     is_link and size == 0,
+            })
+        return sorted(entries, key=lambda e: e["name"])
+    except Exception as e:
+        logger.warning(f"[proxmox] Listing distant échoué : {e}")
+        return []
+
+@app.get("/api/symlinks/status")
+async def get_proxmox_status():
+    """Retourne l'état SSH + liste réelle des fichiers dans proxmox-view (via SSH)."""
+    cfg  = _get_ssh_settings()
+    conn = get_db()
+    total_isos    = conn.execute(
+        "SELECT COUNT(*) FROM iso_library WHERE status IN ('complete','checksum_warning')"
+    ).fetchone()[0]
+    missing_count = conn.execute(
+        "SELECT COUNT(*) FROM iso_library WHERE status='missing'"
+    ).fetchone()[0]
+    conn.close()
+
+    ssh_configured = bool(cfg.get("ssh_host", "").strip())
+    entries = _remote_ls_proxmox_view(cfg) if ssh_configured else []
+
+    return {
+        "symlink_dir":      cfg.get("ssh_dest_dir", ""),
+        "dir_exists":       len(entries) > 0 or ssh_configured,
+        "ssh_configured":   ssh_configured,
+        "ssh_host":         cfg.get("ssh_host", ""),
+        "total_symlinks":   len(entries),
+        "total_isos":       total_isos,
+        "missing_in_db":    missing_count,
+        "symlinks":         entries,
+    }
+
+@app.post("/api/symlinks/test-ssh")
+async def test_ssh_connection():
+    """Teste la connexion SSH vers Unraid."""
+    cfg = _get_ssh_settings()
+    ok, msg = _test_ssh(cfg)
+    return {"ok": ok, "message": msg}
+
+@app.post("/api/symlinks/generate-key")
+async def generate_ssh_key():
+    """Génère une paire de clés SSH dans le container."""
+    cfg      = _get_ssh_settings()
+    key_path = cfg.get("ssh_key_path", "/data/ssh/id_rsa").strip() or "/data/ssh/id_rsa"
+    ok, pub  = _generate_ssh_key(key_path)
+    return {"ok": ok, "public_key": pub, "key_path": key_path}
+
+@app.put("/api/symlinks/config")
+async def update_proxmox_config(payload: dict):
+    conn = get_db()
+    for k, v in payload.items():
+        if k.startswith("ssh_") or k == "symlink_dir":
+            conn.execute("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)", (k, str(v)))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+@app.delete("/api/symlinks/clean")
+async def clean_proxmox_view():
+    """
+    Nettoie les orphelins sur Unraid.
+    Le script sync_symlinks.sh nettoie déjà les orphelins à chaque sync
+    (section "Nettoyage des symlinks orphelins" du script) — cet endpoint
+    relance simplement une sync complète via SSH pour déclencher ce nettoyage.
+    """
+    report = sync_via_ssh()
+    return {"removed": report.get("removed", 0), "sync": report}
+
+@app.post("/api/symlinks/repair")
+async def repair_and_sync():
+    repair = repair_db_paths()
+    sync   = sync_via_ssh()
+    return {**repair, "sync": sync}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Startup
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.on_event("startup")
 async def startup():
-    logger.info("Lancement ISOWatcher v1.2…")
+    logger.info("Lancement ISOWatcher v2.0…")
     init_db()
     conn = get_db()
     try:
@@ -1388,7 +1909,8 @@ async def startup():
                         settings.get("schedule_days", "mon"))
         if not scheduler.running:
             scheduler.start()
-        logger.info("ISOWatcher v1.2 prêt.")
+        threading.Thread(target=repair_db_paths, daemon=True).start()
+        logger.info("ISOWatcher v2.0 prêt.")
     except Exception as e:
         logger.error(f"Erreur startup: {e}")
     finally:

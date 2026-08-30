@@ -6,12 +6,13 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Base de données persistante
+      # ── Base de données SQLite + clé SSH générée (./data/ssh/) ─────────────
       - ./data:/data
-      # Dossier ISO — pointe vers ton partage NAS monté sur Proxmox
-      # Exemple NFS monté : /mnt/nas/isos
-      # Remplace le chemin ci-dessous par ton point de montage réel
+
+      # ── ISOs sur le NAS en CIFS/SMB (Unraid) ───────────────────────────────
+      # Remplace par ton chemin de montage CIFS réel
       - /mnt/nas/isos:/data/isos
+
     environment:
       - DATA_DIR=/data
       - TZ=Europe/Paris
@@ -22,15 +23,65 @@ services:
       start_period: 15s
       retries: 3
 
-# ─── Notes de déploiement sur Proxmox ────────────────────────────────────────
-# 1. Monter ton NAS sur Proxmox (NFS exemple) :
-#    Dans /etc/fstab du host Proxmox :
-#    192.168.1.x:/volume1/isos /mnt/nas/isos nfs defaults,_netdev 0 0
+# ═══════════════════════════════════════════════════════════════════════════════
+#  GUIDE DE DÉPLOIEMENT — ARCHITECTURE SSH (Unraid + Proxmox en CIFS)
+# ═══════════════════════════════════════════════════════════════════════════════
 #
-# 2. Adapter le volume ci-dessus avec ton chemin réel
+#  ARCHITECTURE :
+#    Unraid (NAS)
+#      isos/                    ← partage CIFS monté dans ce container (/data/isos)
+#        <distro>/<version>/*.iso
+#        proxmox-view/template/iso/   ← symlinks créés PAR UNRAID via SSH
+#                                        (jamais par ce container — CIFS ne
+#                                        supporte pas les symlinks côté client)
 #
-# 3. Lancer :
+#    Proxmox
+#      Monte proxmox-view/ directement depuis Unraid en CIFS,
+#      indépendamment de ce container Docker.
+#
+#  POURQUOI SSH ET PAS UN MONTAGE LOCAL :
+#    Ce container n'a PLUS besoin de monter proxmox-view. La sync se fait
+#    en connectant ISOWatcher à Unraid en SSH pour y exécuter
+#    sync_symlinks.sh, qui crée les liens directement sur le filesystem
+#    XFS natif d'Unraid (où les symlinks fonctionnent normalement).
+#
+#  ÉTAPE 1 — Monter le NAS CIFS (ISOs uniquement)
+#  ─────────────────────────────────────────────
+#    apt install cifs-utils -y
+#    mkdir -p /mnt/nas/isos
+#    cat > /etc/nas-creds << 'CREDS'
+#    username=VOTRE_USER
+#    password=VOTRE_MOT_DE_PASSE
+#    CREDS
+#    chmod 600 /etc/nas-creds
+#    echo "//192.168.1.X/isos  /mnt/nas/isos  cifs  credentials=/etc/nas-creds,_netdev,nofail,uid=0,gid=0  0  0" >> /etc/fstab
+#    mount -a
+#
+#  ÉTAPE 2 — Copier le script sur Unraid
+#  ───────────────────────────────────────
+#    scp sync_symlinks.sh root@UNRAID_IP:/mnt/user/isos/isowatcher/
+#    ssh root@UNRAID_IP "chmod +x /mnt/user/isos/isowatcher/sync_symlinks.sh"
+#
+#  ÉTAPE 3 — Démarrer ISOWatcher
+#  ──────────────────────────────
 #    docker compose up -d
 #
-# 4. Accéder à l'interface :
-#    http://IP_PROXMOX:8080
+#  ÉTAPE 4 — Configurer SSH depuis l'interface
+#  ──────────────────────────────────────────────
+#    Interface → Proxmox Sync :
+#      - Générer une clé SSH (bouton dédié)
+#      - Copier la clé publique dans /root/.ssh/authorized_keys sur Unraid
+#      - Renseigner IP Unraid, chemins source/destination, chemin du script
+#      - Tester SSH → Synchroniser
+#
+#  ÉTAPE 5 — Déclarer le storage Proxmox
+#  ───────────────────────────────────────
+#    Ajouter dans /etc/pve/storage.cfg (monte proxmox-view directement
+#    depuis Unraid — indépendant de ce container Docker) :
+#
+#    dir: isowatcher
+#      path /mnt/proxmox-view
+#      content iso
+#
+#    Vérifier : pvesm list isowatcher
+#

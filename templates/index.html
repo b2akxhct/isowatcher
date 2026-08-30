@@ -156,12 +156,18 @@ textarea{resize:vertical;min-height:70px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-/* Two col layout */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:900px){.two-col{grid-template-columns:1fr}.stats-bar{grid-template-columns:1fr 1fr}}
+/* Lang bar */
+.lang-bar{position:fixed;top:16px;right:16px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px}
+.lang-btn{background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:600;padding:6px 10px;border-radius:6px;cursor:pointer;transition:all .2s}
+.lang-btn.active{background:var(--accent);color:#000}
+.lang-btn:not(.active):hover{color:var(--text)}
 </style>
 </head>
 <body>
+<div class="lang-bar">
+  <button class="lang-btn" id="lang-fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+</div>
 <div class="layout">
 
 <!-- ═══ SIDEBAR ═══ -->
@@ -171,21 +177,22 @@ textarea{resize:vertical;min-height:70px}
     <div class="logo-sub">Library Manager</div>
   </div>
   <nav>
-    <div class="nav-section">Principal</div>
-    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="icon">⬡</span>Dashboard</button>
-    <button class="nav-item" onclick="showPage('distros')"   id="nav-distros"><span class="icon">◈</span>Distributions</button>
-    <button class="nav-item" onclick="showPage('library')"   id="nav-library"><span class="icon">▦</span>Bibliothèque</button>
-    <div class="nav-section">Téléchargements</div>
-    <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><span class="icon">⬇</span>En cours</button>
-    <button class="nav-item" onclick="showPage('archive')"   id="nav-archive"><span class="icon">◫</span>Archives FTP</button>
-    <div class="nav-section">Outils</div>
-    <button class="nav-item" onclick="showPage('scan')"      id="nav-scan"><span class="icon">⟳</span>Scan local</button>
-    <button class="nav-item" onclick="showPage('tuto')"      id="nav-tuto"><span class="icon">◷</span>Guide d'ajout</button>
-    <button class="nav-item" onclick="showPage('logs')"      id="nav-logs"><span class="icon">≡</span>Logs</button>
-    <button class="nav-item" onclick="showPage('settings')"  id="nav-settings"><span class="icon">⚙</span>Paramètres</button>
+    <div class="nav-section" data-i18n="nav.main">Principal</div>
+    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="icon">⬡</span><span data-i18n="nav.dashboard">Dashboard</span></button>
+    <button class="nav-item" onclick="showPage('distros')"   id="nav-distros"><span class="icon">◈</span><span data-i18n="nav.distros">Distributions</span></button>
+    <button class="nav-item" onclick="showPage('library')"   id="nav-library"><span class="icon">▦</span><span data-i18n="nav.library">Bibliothèque</span></button>
+    <div class="nav-section" data-i18n="nav.downloads_section">Téléchargements</div>
+    <button class="nav-item" onclick="showPage('downloads')" id="nav-downloads"><span class="icon">⬇</span><span data-i18n="nav.downloads">En cours</span></button>
+    <button class="nav-item" onclick="showPage('archive')"   id="nav-archive"><span class="icon">◫</span><span data-i18n="nav.archive">Archives FTP</span></button>
+    <div class="nav-section" data-i18n="nav.tools">Outils</div>
+    <button class="nav-item" onclick="showPage('proxmox')"   id="nav-proxmox"><span class="icon">⬡</span><span data-i18n="nav.proxmox">Proxmox sync</span></button>
+    <button class="nav-item" onclick="showPage('scan')"      id="nav-scan"><span class="icon">⟳</span><span data-i18n="nav.scan">Scan local</span></button>
+    <button class="nav-item" onclick="showPage('tuto')"      id="nav-tuto"><span class="icon">◷</span><span data-i18n="nav.tuto">Guide d'ajout</span></button>
+    <button class="nav-item" onclick="showPage('logs')"      id="nav-logs"><span class="icon">≡</span><span data-i18n="nav.logs">Logs</span></button>
+    <button class="nav-item" onclick="showPage('settings')"  id="nav-settings"><span class="icon">⚙</span><span data-i18n="nav.settings">Paramètres</span></button>
   </nav>
   <div class="sidebar-footer">
-    <div class="status-dot"><div class="dot"></div>Scheduler actif<span class="version-badge">v1.2</span></div>
+    <div class="status-dot"><div class="dot"></div><span data-i18n="scheduler.active">Scheduler actif</span><span class="version-badge">v2.0</span></div>
   </div>
 </aside>
 
@@ -196,23 +203,23 @@ textarea{resize:vertical;min-height:70px}
 <div class="page active" id="page-dashboard">
   <div class="page-header">
     <div class="page-title-wrap">
-      <div class="page-title">Dashboard</div>
-      <div class="page-subtitle">Vue d'ensemble de votre bibliothèque ISO</div>
+      <div class="page-title" data-i18n="dashboard.title">Dashboard</div>
+      <div class="page-subtitle" data-i18n="dashboard.subtitle">Vue d'ensemble de votre bibliothèque ISO</div>
     </div>
-    <button class="btn btn-primary" onclick="triggerCheck()">↻ Vérifier maintenant</button>
+    <button class="btn btn-primary" onclick="triggerCheck()" data-i18n="dashboard.check_now">↻ Vérifier maintenant</button>
   </div>
   <div class="stats-bar" id="stats-bar">
-    <div class="stat-card"><div class="stat-label">ISOs stockées</div><div class="stat-value" id="stat-isos">—</div><div class="stat-sub">toutes versions</div></div>
-    <div class="stat-card"><div class="stat-label">Espace utilisé</div><div class="stat-value" id="stat-size">—</div><div class="stat-sub">gigaoctets</div></div>
-    <div class="stat-card"><div class="stat-label">Distros suivies</div><div class="stat-value" id="stat-distros">—</div><div class="stat-sub">actives</div></div>
-    <div class="stat-card"><div class="stat-label">En cours</div><div class="stat-value" id="stat-active">—</div><div class="stat-sub">téléchargements</div></div>
+    <div class="stat-card"><div class="stat-label" data-i18n="dashboard.stat_isos">ISOs stockées</div><div class="stat-value" id="stat-isos">—</div><div class="stat-sub" data-i18n="dashboard.stat_isos_sub">toutes versions</div></div>
+    <div class="stat-card"><div class="stat-label" data-i18n="dashboard.stat_size">Espace utilisé</div><div class="stat-value" id="stat-size">—</div><div class="stat-sub" data-i18n="dashboard.stat_size_sub">gigaoctets</div></div>
+    <div class="stat-card"><div class="stat-label" data-i18n="dashboard.stat_distros">Distros suivies</div><div class="stat-value" id="stat-distros">—</div><div class="stat-sub" data-i18n="dashboard.stat_distros_sub">actives</div></div>
+    <div class="stat-card"><div class="stat-label" data-i18n="dashboard.stat_active">En cours</div><div class="stat-value" id="stat-active">—</div><div class="stat-sub" data-i18n="dashboard.stat_active_sub">téléchargements</div></div>
   </div>
   <div class="two-col">
-    <div class="card"><div class="card-title">⬇ Téléchargements actifs</div><div id="dash-downloads"></div></div>
-    <div class="card"><div class="card-title">≡ Dernières activités</div><div id="dash-logs"></div></div>
+    <div class="card"><div class="card-title" data-i18n="dashboard.active_dl">⬇ Téléchargements actifs</div><div id="dash-downloads"></div></div>
+    <div class="card"><div class="card-title" data-i18n="dashboard.recent_activity">≡ Dernières activités</div><div id="dash-logs"></div></div>
   </div>
   <div class="card">
-    <div class="card-title">◈ Distributions surveillées</div>
+    <div class="card-title" data-i18n="dashboard.monitored">◈ Distributions surveillées</div>
     <div id="dash-distros"></div>
   </div>
 </div>
@@ -220,17 +227,17 @@ textarea{resize:vertical;min-height:70px}
 <!-- ─── DISTRIBUTIONS ─── -->
 <div class="page" id="page-distros">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Distributions</div><div class="page-subtitle">Gérer les distributions surveillées</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="distros.title">Distributions</div><div class="page-subtitle" data-i18n="distros.subtitle">Gérer les distributions surveillées</div></div>
   </div>
   <div class="action-bar">
-    <button class="btn btn-primary" onclick="openAddDistro()">+ Ajouter</button>
-    <button class="btn btn-secondary" onclick="triggerCheck()">↻ Vérifier toutes</button>
+    <button class="btn btn-primary" onclick="openAddDistro()" data-i18n="distros.add">+ Ajouter</button>
+    <button class="btn btn-secondary" onclick="triggerCheck()" data-i18n="distros.check_all">↻ Vérifier toutes</button>
     <span class="spacer"></span>
-    <span style="font-size:11px;color:var(--muted);">Cliquez sur ✏ pour modifier une entrée</span>
+    <span style="font-size:11px;color:var(--muted);" data-i18n="distros.edit_hint">Cliquez sur ✏ pour modifier une entrée</span>
   </div>
   <div class="card" style="padding:0">
     <table>
-      <thead><tr><th>Nom</th><th>Type</th><th>Source</th><th>Dernière version</th><th>Vérifié</th><th>ISO</th><th>Statut</th><th>Actions</th></tr></thead>
+      <thead><tr><th data-i18n="th.name">Nom</th><th data-i18n="th.type">Type</th><th data-i18n="th.source">Source</th><th data-i18n="th.last_version">Dernière version</th><th data-i18n="th.checked">Vérifié</th><th>ISO</th><th data-i18n="th.status">Statut</th><th data-i18n="th.actions">Actions</th></tr></thead>
       <tbody id="distros-table"></tbody>
     </table>
   </div>
@@ -239,11 +246,11 @@ textarea{resize:vertical;min-height:70px}
 <!-- ─── LIBRARY ─── -->
 <div class="page" id="page-library">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Bibliothèque ISO</div><div class="page-subtitle">Toutes les ISO téléchargées</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="library.title">Bibliothèque ISO</div><div class="page-subtitle" data-i18n="library.subtitle">Toutes les ISO téléchargées</div></div>
   </div>
   <div class="card" style="padding:0">
     <table>
-      <thead><tr><th>Distribution</th><th>Version</th><th>Fichier</th><th>Taille</th><th>Source</th><th>SHA-256</th><th>Téléchargé le</th></tr></thead>
+      <thead><tr><th data-i18n="th.distro">Distribution</th><th data-i18n="th.version">Version</th><th data-i18n="th.file">Fichier</th><th data-i18n="th.size">Taille</th><th data-i18n="th.source">Source</th><th>SHA-256</th><th data-i18n="th.downloaded_at">Téléchargé le</th></tr></thead>
       <tbody id="library-table"></tbody>
     </table>
   </div>
@@ -252,7 +259,7 @@ textarea{resize:vertical;min-height:70px}
 <!-- ─── DOWNLOADS ─── -->
 <div class="page" id="page-downloads">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Téléchargements</div><div class="page-subtitle">Progression en temps réel</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="downloads.title">Téléchargements</div><div class="page-subtitle" data-i18n="downloads.subtitle">Progression en temps réel</div></div>
   </div>
   <div id="downloads-list"></div>
 </div>
@@ -260,12 +267,12 @@ textarea{resize:vertical;min-height:70px}
 <!-- ─── ARCHIVE ─── -->
 <div class="page" id="page-archive">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Archives FTP</div><div class="page-subtitle">Télécharger des versions historiques depuis les FTP officiels</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="archive.title">Archives FTP</div><div class="page-subtitle" data-i18n="archive.subtitle">Télécharger des versions historiques depuis les FTP officiels</div></div>
   </div>
   <div class="info-box">
-    <strong>ℹ Archives officielles</strong> — Ces liens pointent directement vers les FTP officiels des distributions.
+    <strong data-i18n="archive.info_title">ℹ Archives officielles</strong> — <span data-i18n="archive.info_body">Ces liens pointent directement vers les FTP officiels des distributions.
     Sélectionnez une distribution, choisissez la version souhaitée, et lancez le téléchargement.
-    Les ISOs seront stockées dans votre bibliothèque comme n'importe quelle autre ISO.
+    Les ISOs seront stockées dans votre bibliothèque comme n'importe quelle autre ISO.</span>
   </div>
   <div class="action-bar">
     <button class="btn btn-secondary active-arch" data-key="debian"  onclick="loadArchive('debian')">Debian</button>
@@ -274,9 +281,87 @@ textarea{resize:vertical;min-height:70px}
     <button class="btn btn-secondary" data-key="arch"    onclick="loadArchive('arch')">Arch Linux</button>
   </div>
   <div class="card">
-    <div class="card-title" id="archive-title">Debian — Versions disponibles</div>
+    <div class="card-title" id="archive-title" data-i18n="archive.default_title">Debian — Versions disponibles</div>
     <div id="archive-ftp-link" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
     <div id="archive-grid"></div>
+  </div>
+</div>
+
+<!-- ─── PROXMOX SYNC ─── -->
+<div class="page" id="page-proxmox">
+  <div class="page-header">
+    <div class="page-title-wrap"><div class="page-title" data-i18n="proxmox.title">Proxmox Sync</div><div class="page-subtitle" data-i18n="proxmox.subtitle">Synchronisation via SSH → script bash sur Unraid</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" onclick="testSSH()" data-i18n="proxmox.test_ssh">🔌 Tester SSH</button>
+      <button class="btn btn-warning"   onclick="repairPaths()" data-i18n="proxmox.repair_db">🔧 Réparer DB</button>
+      <button class="btn btn-primary"   onclick="syncSymlinks()" data-i18n="proxmox.sync">↻ Synchroniser</button>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong data-i18n="proxmox.info_title">ℹ Architecture SSH</strong> — <span data-i18n="proxmox.info_body">Tout étant sur CIFS/SMB, les symlinks ne peuvent pas être créés depuis Docker (Errno 95).
+    ISOWatcher déclenche <code>sync_symlinks.sh</code> <strong>directement sur Unraid via SSH</strong>.
+    Unraid crée les liens sur son filesystem XFS natif → Proxmox les voit via son montage CIFS.</span>
+  </div>
+
+  <!-- Config SSH -->
+  <div class="card">
+    <div class="card-title" data-i18n="proxmox.ssh_config">🔑 Configuration SSH (connexion vers Unraid)</div>
+    <div class="form-grid">
+      <div class="form-group"><label data-i18n="proxmox.ssh_host">IP / Hostname Unraid</label><input type="text" id="ssh-host" placeholder="192.168.1.X"></div>
+      <div class="form-group"><label data-i18n="proxmox.ssh_user">Utilisateur SSH</label><input type="text" id="ssh-user" placeholder="root" value="root"></div>
+      <div class="form-group"><label data-i18n="proxmox.ssh_port">Port SSH</label><input type="number" id="ssh-port" placeholder="22" value="22"></div>
+      <div class="form-group"><label data-i18n="proxmox.ssh_key">Chemin clé privée (dans le container)</label><input type="text" id="ssh-key-path" placeholder="/data/ssh/id_rsa"></div>
+      <div class="form-group full"><label data-i18n="proxmox.ssh_script">Chemin du script sur Unraid</label><input type="text" id="ssh-script-path" placeholder="/mnt/user/isos/isowatcher/sync_symlinks.sh"></div>
+      <div class="form-group"><label data-i18n="proxmox.ssh_source">Dossier source ISOs (Unraid)</label><input type="text" id="ssh-source-dir" placeholder="/mnt/user/isos/isos"></div>
+      <div class="form-group"><label data-i18n="proxmox.ssh_dest">Dossier destination proxmox-view (Unraid)</label><input type="text" id="ssh-dest-dir" placeholder="/mnt/user/isos/proxmox-view/template/iso"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveSSHConfig()" data-i18n="common.save">Sauvegarder</button>
+      <button class="btn btn-secondary" onclick="generateSSHKey()" data-i18n="proxmox.gen_key">🔑 Générer clé SSH</button>
+      <span id="ssh-status-badge"></span>
+    </div>
+    <!-- Clé publique générée -->
+    <div id="ssh-pubkey-box" style="display:none;margin-top:16px">
+      <div class="info-box" style="background:rgba(0,230,118,.05);border-color:rgba(0,230,118,.2)">
+        <strong data-i18n="proxmox.pubkey_title">✓ Clé publique générée</strong> — <span data-i18n="proxmox.pubkey_body">Copiez cette clé dans <code>/root/.ssh/authorized_keys</code> sur Unraid :</span>
+      </div>
+      <textarea id="ssh-pubkey-text" style="width:100%;height:80px;margin-top:8px;font-size:11px" readonly></textarea>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">
+        <span data-i18n="proxmox.quick_cmd">Commande rapide :</span> <code>ssh root@UNRAID_IP "mkdir -p ~/.ssh && echo '$(cat /data/ssh/id_rsa.pub)' >> ~/.ssh/authorized_keys"</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snippet Proxmox -->
+  <div class="card">
+    <div class="card-title">📋 <span data-i18n="proxmox.pve_config">Configuration Proxmox</span> (<code>/etc/pve/storage.cfg</code>)</div>
+    <pre id="proxmox-config-snippet" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;line-height:1.8;overflow-x:auto">
+# Montage CIFS de proxmox-view sur Proxmox (à adapter) :
+# //192.168.1.X/isos /mnt/proxmox-view cifs credentials=/etc/nas-creds,_netdev,nofail 0 0
+
+dir: isowatcher
+  path /mnt/proxmox-view
+  content iso</pre>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px" data-i18n="proxmox.pve_verify">
+      Vérifier : <code>pvesm list isowatcher</code> — Recharger : <code>systemctl reload pvedaemon</code>
+    </p>
+  </div>
+
+  <!-- Rapport dernière sync -->
+  <div id="sync-report-card" style="display:none" class="card">
+    <div class="card-title" data-i18n="proxmox.last_report">📊 Dernier rapport de sync</div>
+    <div id="sync-report-content"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between">
+      <span data-i18n="proxmox.content_title">🔗 Contenu proxmox-view (local)</span>
+      <span class="chip" id="sym-count">—</span>
+    </div>
+    <div id="symlinks-stats" style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap"></div>
+    <div id="symlinks-list"></div>
   </div>
 </div>
 
@@ -284,14 +369,14 @@ textarea{resize:vertical;min-height:70px}
 <div class="page" id="page-scan">
   <div class="page-header">
     <div class="page-title-wrap">
-      <div class="page-title">Scan local</div>
-      <div class="page-subtitle">Analyser et importer les ISO déjà présentes sur le stockage</div>
+      <div class="page-title" data-i18n="scan.title">Scan local</div>
+      <div class="page-subtitle" data-i18n="scan.subtitle">Analyser et importer les ISO déjà présentes sur le stockage</div>
     </div>
-    <button class="btn btn-primary" id="scan-btn" onclick="startScan()">⟳ Lancer le scan</button>
+    <button class="btn btn-primary" id="scan-btn" onclick="startScan()" data-i18n="scan.start">⟳ Lancer le scan</button>
   </div>
 
   <!-- Info box -->
-  <div class="info-box">
+  <div class="info-box" data-i18n="scan.info_body">
     <strong>ℹ Comment fonctionne le scan</strong><br>
     Le scan parcourt récursivement le dossier <code>/data/isos</code> à la recherche de fichiers <code>.iso</code>.
     Chaque fichier est analysé : les ISO reconnues sont importées automatiquement avec leur checksum SHA-256.
@@ -302,7 +387,7 @@ textarea{resize:vertical;min-height:70px}
   <!-- Barre de progression -->
   <div class="card" id="scan-progress-card" style="display:none">
     <div class="card-title">
-      <span id="scan-progress-title">Scan en cours…</span>
+      <span id="scan-progress-title" data-i18n="scan.in_progress">Scan en cours…</span>
       <span id="scan-progress-pct" style="color:var(--accent);font-family:var(--mono)">0%</span>
     </div>
     <div class="progress-wrap" style="height:10px">
@@ -311,23 +396,23 @@ textarea{resize:vertical;min-height:70px}
     <div style="display:flex;gap:24px;margin-top:14px;flex-wrap:wrap">
       <div style="text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--text)" id="sc-total">0</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Total</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px" data-i18n="scan.total">Total</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--green)" id="sc-new">0</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Importés</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px" data-i18n="scan.imported">Importés</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--yellow)" id="sc-modified">0</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Modifiés</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px" data-i18n="scan.modified">Modifiés</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--muted)" id="sc-known">0</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Déjà connus</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px" data-i18n="scan.known">Déjà connus</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--red)" id="sc-unid">0</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Non identifiés</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px" data-i18n="scan.unidentified">Non identifiés</div>
       </div>
     </div>
     <div style="margin-top:10px;font-size:11px;color:var(--muted)" id="scan-current-file"></div>
@@ -337,10 +422,10 @@ textarea{resize:vertical;min-height:70px}
   <div id="scan-unidentified-section" style="display:none">
     <div class="card">
       <div class="card-title" style="color:var(--red)">
-        ⚠ Fichiers non identifiés — assignation manuelle requise
+        <span data-i18n="scan.unid_title">⚠ Fichiers non identifiés — assignation manuelle requise</span>
         <span id="unid-count-badge" class="badge badge-warning">0</span>
       </div>
-      <div class="info-box" style="background:rgba(255,61,113,.05);border-color:rgba(255,61,113,.2)">
+      <div class="info-box" style="background:rgba(255,61,113,.05);border-color:rgba(255,61,113,.2)" data-i18n="scan.unid_body">
         Ces ISO n'ont pas pu être reconnues automatiquement depuis leur nom de fichier.
         Assignez-leur une distribution et une version, ou ignorez-les.
       </div>
@@ -352,17 +437,17 @@ textarea{resize:vertical;min-height:70px}
   <div id="scan-report-section" style="display:none">
     <div class="card" style="padding:0">
       <div style="padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--display);font-size:14px;font-weight:700">Rapport de scan</div>
+        <div style="font-family:var(--display);font-size:14px;font-weight:700" data-i18n="scan.report_title">Rapport de scan</div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="filterReport('all')"    id="rf-all">Tous</button>
-          <button class="btn btn-secondary btn-sm" onclick="filterReport('imported')" id="rf-imported">Importés</button>
-          <button class="btn btn-secondary btn-sm" onclick="filterReport('modified')" id="rf-modified">Modifiés</button>
-          <button class="btn btn-secondary btn-sm" onclick="filterReport('known')"    id="rf-known">Connus</button>
-          <button class="btn btn-secondary btn-sm" onclick="filterReport('unidentified')" id="rf-unid">Non identifiés</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('all')"    id="rf-all" data-i18n="scan.filter_all">Tous</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('imported')" id="rf-imported" data-i18n="scan.imported">Importés</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('modified')" id="rf-modified" data-i18n="scan.modified">Modifiés</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('known')"    id="rf-known" data-i18n="scan.known">Connus</button>
+          <button class="btn btn-secondary btn-sm" onclick="filterReport('unidentified')" id="rf-unid" data-i18n="scan.unidentified">Non identifiés</button>
         </div>
       </div>
       <table>
-        <thead><tr><th>Fichier</th><th>Taille</th><th>Distribution</th><th>Version</th><th>Statut</th><th>Note</th></tr></thead>
+        <thead><tr><th data-i18n="th.file">Fichier</th><th data-i18n="th.size">Taille</th><th data-i18n="th.distro">Distribution</th><th data-i18n="th.version">Version</th><th data-i18n="th.status">Statut</th><th data-i18n="th.note">Note</th></tr></thead>
         <tbody id="scan-report-table"></tbody>
       </table>
     </div>
@@ -372,8 +457,8 @@ textarea{resize:vertical;min-height:70px}
   <div id="scan-initial">
     <div class="empty" style="padding:80px 20px">
       <div class="empty-icon">⟳</div>
-      <div class="empty-text">Cliquez sur <strong>Lancer le scan</strong> pour analyser votre bibliothèque locale</div>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Le scan est non-destructif et peut être lancé à tout moment</div>
+      <div class="empty-text" data-i18n="scan.initial_text">Cliquez sur <strong>Lancer le scan</strong> pour analyser votre bibliothèque locale</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)" data-i18n="scan.initial_sub">Le scan est non-destructif et peut être lancé à tout moment</div>
     </div>
   </div>
 </div>
@@ -381,40 +466,40 @@ textarea{resize:vertical;min-height:70px}
 <!-- ─── TUTO ─── -->
 <div class="page" id="page-tuto">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Guide d'ajout</div><div class="page-subtitle">Comment ajouter et configurer une nouvelle distribution</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="tuto.title">Guide d'ajout</div><div class="page-subtitle" data-i18n="tuto.subtitle">Comment ajouter et configurer une nouvelle distribution</div></div>
   </div>
 
   <div class="tuto-step">
     <div class="tuto-step-num">1</div>
-    <h3>Comprendre les deux types de source</h3>
-    <p>ISOWatcher supporte deux modes pour trouver et télécharger les ISOs :</p>
+    <h3 data-i18n="tuto.s1_h">Comprendre les deux types de source</h3>
+    <p data-i18n="tuto.s1_p">ISOWatcher supporte deux modes pour trouver et télécharger les ISOs :</p>
     <table>
-      <thead><tr><th>Mode</th><th>Description</th><th>Quand l'utiliser</th></tr></thead>
+      <thead><tr><th data-i18n="tuto.mode">Mode</th><th data-i18n="th.description">Description</th><th data-i18n="tuto.when_use">Quand l'utiliser</th></tr></thead>
       <tbody>
-        <tr><td>Direct (URL)</td><td>Scraping d'une page + URL de téléchargement avec placeholder <code>{version}</code></td><td>Linux, BSD, tout OS avec FTP public</td></tr>
-        <tr><td>rg-adguard</td><td>Navigation automatique sur files.rg-adguard.net via UUID</td><td>Windows uniquement (Server, 10, 11)</td></tr>
+        <tr><td>Direct (URL)</td><td data-i18n="tuto.s1_row1_desc">Scraping d'une page + URL de téléchargement avec placeholder <code>{version}</code></td><td data-i18n="tuto.s1_row1_use">Linux, BSD, tout OS avec FTP public</td></tr>
+        <tr><td>rg-adguard</td><td data-i18n="tuto.s1_row2_desc">Navigation automatique sur files.rg-adguard.net via UUID</td><td data-i18n="tuto.s1_row2_use">Windows uniquement (Server, 10, 11)</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="tuto-step">
     <div class="tuto-step-num">2</div>
-    <h3>Ajouter une distribution Linux (mode Direct)</h3>
-    <p>Pour chaque distribution, vous avez besoin de 3 informations :</p>
+    <h3 data-i18n="tuto.s2_h">Ajouter une distribution Linux (mode Direct)</h3>
+    <p data-i18n="tuto.s2_p">Pour chaque distribution, vous avez besoin de 3 informations :</p>
     <table>
-      <thead><tr><th>Champ</th><th>Description</th><th>Exemple (Fedora)</th></tr></thead>
+      <thead><tr><th data-i18n="tuto.field">Champ</th><th data-i18n="th.description">Description</th><th data-i18n="tuto.example_fedora">Exemple (Fedora)</th></tr></thead>
       <tbody>
-        <tr><td>URL de vérification</td><td>Page contenant le numéro de version</td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/</code></td></tr>
-        <tr><td>Regex pattern</td><td>Expression pour extraire la version (groupe 1)</td><td><code>href="(\d{2})/?"</code></td></tr>
-        <tr><td>Template URL</td><td>URL de téléchargement avec <code>{version}</code></td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/{version}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}-1.1.iso</code></td></tr>
+        <tr><td data-i18n="tuto.check_url">URL de vérification</td><td data-i18n="tuto.check_url_desc">Page contenant le numéro de version</td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/</code></td></tr>
+        <tr><td data-i18n="tuto.regex_pattern">Regex pattern</td><td data-i18n="tuto.regex_desc">Expression pour extraire la version (groupe 1)</td><td><code>href="(\d{2})/?"</code></td></tr>
+        <tr><td data-i18n="tuto.url_template">Template URL</td><td data-i18n="tuto.url_template_desc">URL de téléchargement avec <code>{version}</code></td><td><code>https://dl.fedoraproject.org/pub/fedora/linux/releases/{version}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}-1.1.iso</code></td></tr>
       </tbody>
     </table>
-    <p style="margin-top:12px;">Le placeholder <code>{version}</code> sera remplacé automatiquement par la version détectée.</p>
+    <p style="margin-top:12px;" data-i18n="tuto.s2_footer">Le placeholder <code>{version}</code> sera remplacé automatiquement par la version détectée.</p>
   </div>
 
   <div class="tuto-step">
     <div class="tuto-step-num">3</div>
-    <h3>Exemples de configurations prêtes à l'emploi</h3>
+    <h3 data-i18n="tuto.s3_h">Exemples de configurations prêtes à l'emploi</h3>
     <p><strong style="color:var(--green);">Linux Mint (dernière LTS)</strong></p>
     <pre>URL vérif : https://linuxmint.com/download.php
 Regex     : href=".*?/linuxmint-(\d+\.\d+)-cinnamon-64bit\.iso"
@@ -443,10 +528,10 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 
   <div class="tuto-step">
     <div class="tuto-step-num">4</div>
-    <h3>Ajouter une source Windows (mode rg-adguard)</h3>
-    <p>Dans le formulaire d'ajout, sélectionnez <strong>Source : rg-adguard</strong>, puis choisissez le slug dans la liste :</p>
+    <h3 data-i18n="tuto.s4_h">Ajouter une source Windows (mode rg-adguard)</h3>
+    <p data-i18n="tuto.s4_p">Dans le formulaire d'ajout, sélectionnez <strong>Source : rg-adguard</strong>, puis choisissez le slug dans la liste :</p>
     <table>
-      <thead><tr><th>Slug</th><th>Distribution</th></tr></thead>
+      <thead><tr><th>Slug</th><th data-i18n="th.distro">Distribution</th></tr></thead>
       <tbody>
         <tr><td><code>windows-server-2025</code></td><td>Windows Server 2025</td></tr>
         <tr><td><code>windows-server-2022</code></td><td>Windows Server 2022</td></tr>
@@ -455,41 +540,41 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
         <tr><td><code>windows-10</code></td><td>Windows 10</td></tr>
       </tbody>
     </table>
-    <p style="margin-top:12px;">Les checksums SHA-256 et MD5 sont récupérés et vérifiés automatiquement depuis la page rg-adguard.</p>
+    <p style="margin-top:12px;" data-i18n="tuto.s4_footer">Les checksums SHA-256 et MD5 sont récupérés et vérifiés automatiquement depuis la page rg-adguard.</p>
   </div>
 
   <div class="tuto-step">
     <div class="tuto-step-num">5</div>
-    <h3>Tester votre configuration</h3>
-    <p>Après avoir ajouté une distribution :</p>
+    <h3 data-i18n="tuto.s5_h">Tester votre configuration</h3>
+    <p data-i18n="tuto.s5_p">Après avoir ajouté une distribution :</p>
     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:2">
-      <li>Allez dans <strong style="color:var(--text);">Distributions</strong></li>
-      <li>Cliquez sur <strong style="color:var(--text);">⟳ Check</strong> sur votre nouvelle distro</li>
-      <li>Une notification indique la version détectée</li>
-      <li>Si la version est correcte, cliquez <strong style="color:var(--text);">↓ Manuel</strong> pour tester un téléchargement</li>
-      <li>Suivez la progression dans <strong style="color:var(--text);">En cours</strong></li>
+      <li data-i18n="tuto.s5_li1">Allez dans <strong style="color:var(--text);">Distributions</strong></li>
+      <li data-i18n="tuto.s5_li2">Cliquez sur <strong style="color:var(--text);">⟳ Check</strong> sur votre nouvelle distro</li>
+      <li data-i18n="tuto.s5_li3">Une notification indique la version détectée</li>
+      <li data-i18n="tuto.s5_li4">Si la version est correcte, cliquez <strong style="color:var(--text);">↓ Manuel</strong> pour tester un téléchargement</li>
+      <li data-i18n="tuto.s5_li5">Suivez la progression dans <strong style="color:var(--text);">En cours</strong></li>
     </ol>
   </div>
 
   <div class="tuto-step">
     <div class="tuto-step-num">6</div>
-    <h3>Trouver l'URL de téléchargement pour n'importe quelle distro</h3>
-    <p>Méthode universelle pour trouver les bonnes URLs :</p>
+    <h3 data-i18n="tuto.s6_h">Trouver l'URL de téléchargement pour n'importe quelle distro</h3>
+    <p data-i18n="tuto.s6_p">Méthode universelle pour trouver les bonnes URLs :</p>
     <ol style="padding-left:20px;color:var(--muted);font-size:13px;line-height:2">
-      <li>Allez sur la page de téléchargement officielle de la distro</li>
-      <li>Clic droit sur le lien de téléchargement de l'ISO → <em>Copier l'adresse du lien</em></li>
-      <li>Repérez le numéro de version dans l'URL → c'est votre placeholder <code style="color:var(--accent)">{version}</code></li>
-      <li>Remplacez le numéro par <code style="color:var(--accent)">{version}</code> pour obtenir le template</li>
-      <li>Pour l'URL de vérification, prenez la page qui <em>liste</em> les versions (souvent le répertoire parent sur le FTP)</li>
+      <li data-i18n="tuto.s6_li1">Allez sur la page de téléchargement officielle de la distro</li>
+      <li data-i18n="tuto.s6_li2">Clic droit sur le lien de téléchargement de l'ISO → <em>Copier l'adresse du lien</em></li>
+      <li data-i18n="tuto.s6_li3">Repérez le numéro de version dans l'URL → c'est votre placeholder <code style="color:var(--accent)">{version}</code></li>
+      <li data-i18n="tuto.s6_li4">Remplacez le numéro par <code style="color:var(--accent)">{version}</code> pour obtenir le template</li>
+      <li data-i18n="tuto.s6_li5">Pour l'URL de vérification, prenez la page qui <em>liste</em> les versions (souvent le répertoire parent sur le FTP)</li>
     </ol>
-    <p>Exemple : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">24.04</strong>-server.iso</code> → template : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">{version}</strong>-server.iso</code></p>
+    <p data-i18n="tuto.s6_example">Exemple : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">24.04</strong>-server.iso</code> → template : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">{version}</strong>-server.iso</code></p>
   </div>
 </div>
 
 <!-- ─── LOGS ─── -->
 <div class="page" id="page-logs">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Logs</div><div class="page-subtitle">Historique des opérations</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="logs.title">Logs</div><div class="page-subtitle" data-i18n="logs.subtitle">Historique des opérations</div></div>
   </div>
   <div class="card"><div id="logs-list"></div></div>
 </div>
@@ -497,27 +582,27 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <!-- ─── SETTINGS ─── -->
 <div class="page" id="page-settings">
   <div class="page-header">
-    <div class="page-title-wrap"><div class="page-title">Paramètres</div><div class="page-subtitle">Scheduler et notifications</div></div>
+    <div class="page-title-wrap"><div class="page-title" data-i18n="settings.title">Paramètres</div><div class="page-subtitle" data-i18n="settings.subtitle">Scheduler et notifications</div></div>
   </div>
   <div class="card">
-    <div class="card-title">⏱ Planification</div>
+    <div class="card-title" data-i18n="settings.planning">⏱ Planification</div>
     <div id="current-schedule" class="schedule-info"></div>
     <div class="form-grid">
-      <div class="form-group"><label>Fréquence</label><select id="schedule-freq" onchange="updateFreqUI()"><option value="daily">Quotidienne</option><option value="weekly" selected>Hebdomadaire</option><option value="monthly">Mensuelle</option></select></div>
-      <div class="form-group"><label>Heure (0–23)</label><input type="number" id="schedule-hour" min="0" max="23" value="3"></div>
-      <div class="form-group" id="day-group"><label>Jour</label><select id="schedule-days"><option value="mon">Lundi</option><option value="tue">Mardi</option><option value="wed">Mercredi</option><option value="thu">Jeudi</option><option value="fri">Vendredi</option><option value="sat">Samedi</option><option value="sun">Dimanche</option></select></div>
-      <div class="form-group"><label>Minute (0–59)</label><input type="number" id="schedule-minute" min="0" max="59" value="0"></div>
+      <div class="form-group"><label data-i18n="settings.frequency">Fréquence</label><select id="schedule-freq" onchange="updateFreqUI()"><option value="daily" data-i18n="settings.daily">Quotidienne</option><option value="weekly" selected data-i18n="settings.weekly">Hebdomadaire</option><option value="monthly" data-i18n="settings.monthly">Mensuelle</option></select></div>
+      <div class="form-group"><label data-i18n="settings.hour">Heure (0–23)</label><input type="number" id="schedule-hour" min="0" max="23" value="3"></div>
+      <div class="form-group" id="day-group"><label data-i18n="settings.day">Jour</label><select id="schedule-days"><option value="mon" data-i18n="day.mon">Lundi</option><option value="tue" data-i18n="day.tue">Mardi</option><option value="wed" data-i18n="day.wed">Mercredi</option><option value="thu" data-i18n="day.thu">Jeudi</option><option value="fri" data-i18n="day.fri">Vendredi</option><option value="sat" data-i18n="day.sat">Samedi</option><option value="sun" data-i18n="day.sun">Dimanche</option></select></div>
+      <div class="form-group"><label data-i18n="settings.minute">Minute (0–59)</label><input type="number" id="schedule-minute" min="0" max="59" value="0"></div>
     </div>
-    <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveSchedule()">Sauvegarder</button></div>
+    <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveSchedule()" data-i18n="common.save">Sauvegarder</button></div>
   </div>
   <div class="card">
-    <div class="card-title">🔔 Notifications Discord</div>
+    <div class="card-title" data-i18n="settings.discord">🔔 Notifications Discord</div>
     <div class="form-grid">
-      <div class="form-group full"><label>Webhook URL</label><input type="text" id="discord-webhook" placeholder="https://discord.com/api/webhooks/…"></div>
+      <div class="form-group full"><label data-i18n="settings.webhook_url">Webhook URL</label><input type="text" id="discord-webhook" placeholder="https://discord.com/api/webhooks/…"></div>
     </div>
     <div style="margin-top:16px;display:flex;gap:10px">
-      <button class="btn btn-primary" onclick="saveDiscord()">Sauvegarder</button>
-      <button class="btn btn-secondary" onclick="testDiscord()">🔔 Tester</button>
+      <button class="btn btn-primary" onclick="saveDiscord()" data-i18n="common.save">Sauvegarder</button>
+      <button class="btn btn-secondary" onclick="testDiscord()" data-i18n="settings.test">🔔 Tester</button>
     </div>
   </div>
 </div>
@@ -531,18 +616,18 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <div class="modal-overlay" id="modal-distro">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Ajouter une distribution</div>
+      <div class="modal-title" data-i18n="modal.add_distro">Ajouter une distribution</div>
       <button class="modal-close" onclick="closeModal('modal-distro')">✕</button>
     </div>
     <div class="form-grid">
-      <div class="form-group"><label>Nom affiché</label><input type="text" id="d-name" placeholder="ex: Rocky Linux 9"></div>
-      <div class="form-group"><label>Slug (identifiant unique)</label><input type="text" id="d-slug" placeholder="ex: rocky-linux-9"></div>
-      <div class="form-group"><label>Type</label><select id="d-type"><option value="linux">Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other">Autre</option></select></div>
-      <div class="form-group"><label>Source</label><select id="d-source" onchange="toggleSourceFields()"><option value="direct">Direct (URL)</option><option value="rg-adguard">rg-adguard (Windows)</option></select></div>
+      <div class="form-group"><label data-i18n="modal.display_name">Nom affiché</label><input type="text" id="d-name" placeholder="ex: Rocky Linux 9"></div>
+      <div class="form-group"><label data-i18n="modal.slug">Slug (identifiant unique)</label><input type="text" id="d-slug" placeholder="ex: rocky-linux-9"></div>
+      <div class="form-group"><label data-i18n="th.type">Type</label><select id="d-type"><option value="linux">Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other" data-i18n="modal.other">Autre</option></select></div>
+      <div class="form-group"><label data-i18n="th.source">Source</label><select id="d-source" onchange="toggleSourceFields()"><option value="direct" data-i18n="modal.direct_url">Direct (URL)</option><option value="rg-adguard">rg-adguard (Windows)</option></select></div>
     </div>
     <div id="rg-slug-group" style="display:none;margin-top:16px">
-      <div class="rg-info"><strong>◈ Source rg-adguard</strong> — Les checksums sont récupérés automatiquement.</div>
-      <div class="form-group"><label>OS Windows</label>
+      <div class="rg-info"><strong data-i18n="modal.rg_source">◈ Source rg-adguard</strong> — <span data-i18n="modal.rg_auto_checksum">Les checksums sont récupérés automatiquement.</span></div>
+      <div class="form-group"><label data-i18n="modal.windows_os">OS Windows</label>
         <select id="d-rg-slug">
           <option value="windows-server-2025">Windows Server 2025</option>
           <option value="windows-server-2022">Windows Server 2022</option>
@@ -554,15 +639,15 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
     </div>
     <div id="direct-fields" style="margin-top:16px">
       <div class="form-grid">
-        <div class="form-group"><label>Architecture</label><select id="d-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
-        <div class="form-group full"><label>URL de vérification de version</label><input type="text" id="d-check-url" placeholder="https://…/releases/"></div>
-        <div class="form-group full"><label>Regex pattern (groupe 1 = version)</label><input type="text" id="d-pattern" placeholder='href="(\d+\.\d+)/?"'></div>
-        <div class="form-group full"><label>Template URL de téléchargement</label><input type="text" id="d-dl-url" placeholder="https://…/{version}/image.iso"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Utiliser <code>{version}</code> comme placeholder</span></div>
+        <div class="form-group"><label data-i18n="modal.arch">Architecture</label><select id="d-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
+        <div class="form-group full"><label data-i18n="modal.check_url">URL de vérification de version</label><input type="text" id="d-check-url" placeholder="https://…/releases/"></div>
+        <div class="form-group full"><label data-i18n="modal.regex_pattern">Regex pattern (groupe 1 = version)</label><input type="text" id="d-pattern" placeholder='href="(\d+\.\d+)/?"'></div>
+        <div class="form-group full"><label data-i18n="modal.url_template">Template URL de téléchargement</label><input type="text" id="d-dl-url" placeholder="https://…/{version}/image.iso"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block" data-i18n="modal.placeholder_hint">Utiliser <code>{version}</code> comme placeholder</span></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-distro')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveDistro()">Ajouter</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-distro')" data-i18n="common.cancel">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDistro()" data-i18n="modal.add_btn">Ajouter</button>
     </div>
   </div>
 </div>
@@ -571,23 +656,23 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <div class="modal-overlay" id="modal-edit-distro">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Modifier la distribution</div>
+      <div class="modal-title" data-i18n="modal.edit_distro">Modifier la distribution</div>
       <button class="modal-close" onclick="closeModal('modal-edit-distro')">✕</button>
     </div>
     <input type="hidden" id="edit-distro-id">
     <div class="form-grid">
-      <div class="form-group full"><label>Nom affiché</label><input type="text" id="edit-name"></div>
-      <div class="form-group"><label>Architecture</label><select id="edit-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
-      <div class="form-group full"><label>URL de vérification</label><input type="text" id="edit-check-url"></div>
-      <div class="form-group full"><label>Regex pattern</label><input type="text" id="edit-pattern"></div>
-      <div class="form-group full"><label>Template URL de téléchargement</label><input type="text" id="edit-dl-url"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Utiliser <code>{version}</code> comme placeholder</span></div>
+      <div class="form-group full"><label data-i18n="modal.display_name">Nom affiché</label><input type="text" id="edit-name"></div>
+      <div class="form-group"><label data-i18n="modal.arch">Architecture</label><select id="edit-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
+      <div class="form-group full"><label data-i18n="modal.check_url">URL de vérification</label><input type="text" id="edit-check-url"></div>
+      <div class="form-group full"><label data-i18n="modal.regex_pattern_short">Regex pattern</label><input type="text" id="edit-pattern"></div>
+      <div class="form-group full"><label data-i18n="modal.url_template">Template URL de téléchargement</label><input type="text" id="edit-dl-url"><span style="font-size:11px;color:var(--muted);margin-top:4px;display:block" data-i18n="modal.placeholder_hint">Utiliser <code>{version}</code> comme placeholder</span></div>
     </div>
     <div id="edit-rg-notice" style="display:none" class="rg-info" style="margin-top:12px">
-      <strong>◈ Source rg-adguard</strong> — Cette distribution utilise rg-adguard. Seul le nom peut être modifié.
+      <strong data-i18n="modal.rg_source">◈ Source rg-adguard</strong> — <span data-i18n="modal.rg_edit_only_name">Cette distribution utilise rg-adguard. Seul le nom peut être modifié.</span>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-edit-distro')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveEditDistro()">Sauvegarder</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-distro')" data-i18n="common.cancel">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEditDistro()" data-i18n="common.save">Sauvegarder</button>
     </div>
   </div>
 </div>
@@ -596,17 +681,17 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <div class="modal-overlay" id="modal-manual-dl">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Téléchargement manuel</div>
+      <div class="modal-title" data-i18n="modal.manual_dl">Téléchargement manuel</div>
       <button class="modal-close" onclick="closeModal('modal-manual-dl')">✕</button>
     </div>
     <input type="hidden" id="mdl-distro-id">
     <div class="form-grid">
-      <div class="form-group"><label>Version</label><input type="text" id="mdl-version" placeholder="ex: 13.4 ou 2025.05.01"></div>
-      <div class="form-group"><label>URL directe (.iso)</label><input type="text" id="mdl-url" placeholder="https://…/image.iso"></div>
+      <div class="form-group"><label data-i18n="th.version">Version</label><input type="text" id="mdl-version" placeholder="ex: 13.4 ou 2025.05.01"></div>
+      <div class="form-group"><label data-i18n="modal.direct_iso_url">URL directe (.iso)</label><input type="text" id="mdl-url" placeholder="https://…/image.iso"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-manual-dl')">Annuler</button>
-      <button class="btn btn-primary" onclick="startManualDownload()">Télécharger</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-manual-dl')" data-i18n="common.cancel">Annuler</button>
+      <button class="btn btn-primary" onclick="startManualDownload()" data-i18n="common.download">Télécharger</button>
     </div>
   </div>
 </div>
@@ -615,49 +700,74 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <div class="modal-overlay" id="modal-assign">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Assigner une distribution</div>
+      <div class="modal-title" data-i18n="modal.assign_distro">Assigner une distribution</div>
       <button class="modal-close" onclick="closeModal('modal-assign')">✕</button>
     </div>
     <input type="hidden" id="assign-filepath">
     <div class="info-box" id="assign-fileinfo" style="margin-bottom:16px"></div>
-    <div class="form-grid">
-      <div class="form-group full">
-        <label>Distribution</label>
-        <select id="assign-distro-id"></select>
-      </div>
-      <div class="form-group full">
-        <label>Version</label>
-        <input type="text" id="assign-version" placeholder="ex: 13.4 ou 2025.05.01">
+
+    <!-- Sélection distro existante ou nouvelle -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-secondary btn-sm" id="assign-tab-existing" onclick="assignTab('existing')" style="flex:1" data-i18n="modal.existing_category">Catégorie existante</button>
+      <button class="btn btn-secondary btn-sm" id="assign-tab-new"      onclick="assignTab('new')"      style="flex:1" data-i18n="modal.new_category">+ Créer une catégorie</button>
+    </div>
+
+    <!-- Onglet : distro existante -->
+    <div id="assign-panel-existing">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label data-i18n="th.distro">Distribution</label>
+          <select id="assign-distro-id"></select>
+        </div>
+        <div class="form-group full">
+          <label data-i18n="th.version">Version</label>
+          <input type="text" id="assign-version" placeholder="ex: 13.4 ou 2025.05.01">
+        </div>
       </div>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
-      Le SHA-256 sera calculé après validation (peut prendre quelques secondes pour les grosses ISO).
+
+    <!-- Onglet : nouvelle catégorie -->
+    <div id="assign-panel-new" style="display:none">
+      <div class="info-box" style="background:rgba(124,58,237,.05);border-color:rgba(124,58,237,.2);margin-bottom:12px">
+        <strong data-i18n="modal.new_cat_title">◈ Nouvelle catégorie</strong> — <span data-i18n="modal.new_cat_body">Elle sera créée puis utilisée pour cette ISO. Vous pourrez ensuite configurer la détection automatique depuis l'onglet Distributions.</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full"><label data-i18n="modal.display_name">Nom affiché</label><input type="text" id="new-cat-name" placeholder="ex: Manjaro KDE" oninput="autoSlug()"></div>
+        <div class="form-group"><label data-i18n="modal.slug_short">Slug (identifiant)</label><input type="text" id="new-cat-slug" placeholder="ex: manjaro-kde"></div>
+        <div class="form-group"><label data-i18n="th.type">Type</label><select id="new-cat-type"><option value="linux">Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other" data-i18n="modal.other">Autre</option></select></div>
+        <div class="form-group"><label data-i18n="modal.arch">Architecture</label><select id="new-cat-arch"><option value="amd64">amd64</option><option value="arm64">arm64</option><option value="i386">i386</option></select></div>
+        <div class="form-group full"><label data-i18n="modal.this_iso_version">Version de cette ISO</label><input type="text" id="new-cat-version" placeholder="ex: 25.0.1 ou 2025-05"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)" data-i18n="modal.sha256_note">
+      Le SHA-256 sera calculé après validation.
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="ignoreUnidentified()">Ignorer ce fichier</button>
+      <button class="btn btn-danger btn-sm" onclick="ignoreUnidentified()" data-i18n="common.ignore">Ignorer</button>
       <span class="spacer"></span>
-      <button class="btn btn-secondary" onclick="closeModal('modal-assign')">Annuler</button>
-      <button class="btn btn-primary" onclick="confirmAssign()">✓ Assigner</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-assign')" data-i18n="common.cancel">Annuler</button>
+      <button class="btn btn-primary" id="assign-confirm-btn" onclick="confirmAssign()" data-i18n="modal.assign_btn">✓ Assigner</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Assignation manuelle scan -->
+<!-- Modal: Téléchargement archive -->
 <div class="modal-overlay" id="modal-archive-dl">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title" id="archive-dl-title">Télécharger l'archive</div>
+      <div class="modal-title" id="archive-dl-title" data-i18n="modal.dl_archive">Télécharger l'archive</div>
       <button class="modal-close" onclick="closeModal('modal-archive-dl')">✕</button>
     </div>
     <div class="info-box" id="archive-dl-info"></div>
     <div class="form-group">
-      <label>URL de téléchargement</label>
+      <label data-i18n="modal.dl_url">URL de téléchargement</label>
       <input type="text" id="archive-dl-url" placeholder="URL calculée automatiquement">
-      <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Vous pouvez modifier l'URL si l'automatique ne correspond pas.</span>
+      <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block" data-i18n="modal.dl_url_hint">Vous pouvez modifier l'URL si l'automatique ne correspond pas.</span>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-archive-dl')">Annuler</button>
-      <button class="btn btn-primary" onclick="confirmArchiveDownload()">Télécharger</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-archive-dl')" data-i18n="common.cancel">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmArchiveDownload()" data-i18n="common.download">Télécharger</button>
     </div>
   </div>
 </div>
@@ -665,6 +775,278 @@ Template  : https://cdimage.kali.org/kali-weekly/kali-linux-{version}-installer-
 <div class="toast-container" id="toasts"></div>
 
 <script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  I18N — FR / EN
+// ══════════════════════════════════════════════════════════════════════════════
+const I18N = {
+  fr: {
+    'nav.main':'Principal','nav.dashboard':'Dashboard','nav.distros':'Distributions','nav.library':'Bibliothèque',
+    'nav.downloads_section':'Téléchargements','nav.downloads':'En cours','nav.archive':'Archives FTP',
+    'nav.tools':'Outils','nav.proxmox':'Proxmox sync','nav.scan':'Scan local','nav.tuto':"Guide d'ajout",
+    'nav.logs':'Logs','nav.settings':'Paramètres','scheduler.active':'Scheduler actif',
+
+    'dashboard.title':'Dashboard','dashboard.subtitle':'Vue d\'ensemble de votre bibliothèque ISO',
+    'dashboard.check_now':'↻ Vérifier maintenant','dashboard.stat_isos':'ISOs stockées','dashboard.stat_isos_sub':'toutes versions',
+    'dashboard.stat_size':'Espace utilisé','dashboard.stat_size_sub':'gigaoctets','dashboard.stat_distros':'Distros suivies',
+    'dashboard.stat_distros_sub':'actives','dashboard.stat_active':'En cours','dashboard.stat_active_sub':'téléchargements',
+    'dashboard.active_dl':'⬇ Téléchargements actifs','dashboard.recent_activity':'≡ Dernières activités',
+    'dashboard.monitored':'◈ Distributions surveillées',
+
+    'distros.title':'Distributions','distros.subtitle':'Gérer les distributions surveillées','distros.add':'+ Ajouter',
+    'distros.check_all':'↻ Vérifier toutes','distros.edit_hint':'Cliquez sur ✏ pour modifier une entrée',
+
+    'library.title':'Bibliothèque ISO','library.subtitle':'Toutes les ISO téléchargées',
+    'downloads.title':'Téléchargements','downloads.subtitle':'Progression en temps réel',
+
+    'archive.title':'Archives FTP','archive.subtitle':'Télécharger des versions historiques depuis les FTP officiels',
+    'archive.info_title':'ℹ Archives officielles',
+    'archive.info_body':"Ces liens pointent directement vers les FTP officiels des distributions. Sélectionnez une distribution, choisissez la version souhaitée, et lancez le téléchargement. Les ISOs seront stockées dans votre bibliothèque comme n'importe quelle autre ISO.",
+    'archive.default_title':'Debian — Versions disponibles',
+
+    'proxmox.title':'Proxmox Sync','proxmox.subtitle':'Synchronisation via SSH → script bash sur Unraid',
+    'proxmox.test_ssh':'🔌 Tester SSH','proxmox.repair_db':'🔧 Réparer DB','proxmox.sync':'↻ Synchroniser',
+    'proxmox.info_title':'ℹ Architecture SSH',
+    'proxmox.info_body':"Tout étant sur CIFS/SMB, les symlinks ne peuvent pas être créés depuis Docker (Errno 95). ISOWatcher déclenche <code>sync_symlinks.sh</code> <strong>directement sur Unraid via SSH</strong>. Unraid crée les liens sur son filesystem XFS natif → Proxmox les voit via son montage CIFS.",
+    'proxmox.ssh_config':'🔑 Configuration SSH (connexion vers Unraid)','proxmox.ssh_host':'IP / Hostname Unraid',
+    'proxmox.ssh_user':'Utilisateur SSH','proxmox.ssh_port':'Port SSH','proxmox.ssh_key':'Chemin clé privée (dans le container)',
+    'proxmox.ssh_script':'Chemin du script sur Unraid','proxmox.ssh_source':'Dossier source ISOs (Unraid)',
+    'proxmox.ssh_dest':'Dossier destination proxmox-view (Unraid)','proxmox.gen_key':'🔑 Générer clé SSH',
+    'proxmox.pubkey_title':'✓ Clé publique générée',
+    'proxmox.pubkey_body':'Copiez cette clé dans <code>/root/.ssh/authorized_keys</code> sur Unraid :',
+    'proxmox.quick_cmd':'Commande rapide :','proxmox.pve_config':'Configuration Proxmox',
+    'proxmox.pve_verify':'Vérifier : <code>pvesm list isowatcher</code> — Recharger : <code>systemctl reload pvedaemon</code>',
+    'proxmox.last_report':'📊 Dernier rapport de sync','proxmox.content_title':'🔗 Contenu proxmox-view (local)',
+
+    'scan.title':'Scan local','scan.subtitle':'Analyser et importer les ISO déjà présentes sur le stockage',
+    'scan.start':'⟳ Lancer le scan','scan.info_title':'ℹ Comment fonctionne le scan',
+    'scan.info_body':"<strong>ℹ Comment fonctionne le scan</strong><br>Le scan parcourt récursivement le dossier <code>/data/isos</code> à la recherche de fichiers <code>.iso</code>. Chaque fichier est analysé : les ISO reconnues sont importées automatiquement avec leur checksum SHA-256. Les fichiers <strong>modifiés</strong> (taille différente) sont marqués sans écraser les données existantes. Les fichiers <strong>non identifiés</strong> vous sont présentés pour assignation manuelle.",
+    'scan.in_progress':'Scan en cours…','scan.total':'Total','scan.imported':'Importés','scan.modified':'Modifiés',
+    'scan.known':'Déjà connus','scan.unidentified':'Non identifiés',
+    'scan.unid_title':'⚠ Fichiers non identifiés — assignation manuelle requise',
+    'scan.unid_body':"Ces ISO n'ont pas pu être reconnues automatiquement depuis leur nom de fichier. Assignez-leur une distribution et une version, ou ignorez-les.",
+    'scan.report_title':'Rapport de scan','scan.filter_all':'Tous',
+    'scan.initial_text':'Cliquez sur <strong>Lancer le scan</strong> pour analyser votre bibliothèque locale',
+    'scan.initial_sub':'Le scan est non-destructif et peut être lancé à tout moment',
+
+    'tuto.title':"Guide d'ajout",'tuto.subtitle':'Comment ajouter et configurer une nouvelle distribution',
+    'tuto.mode':'Mode','tuto.when_use':"Quand l'utiliser",'tuto.field':'Champ','tuto.example_fedora':'Exemple (Fedora)',
+    'tuto.check_url':'URL de vérification','tuto.check_url_desc':'Page contenant le numéro de version',
+    'tuto.regex_pattern':'Regex pattern','tuto.regex_desc':'Expression pour extraire la version (groupe 1)',
+    'tuto.url_template':'Template URL','tuto.url_template_desc':'URL de téléchargement avec <code>{version}</code>',
+    'tuto.s1_h':'Comprendre les deux types de source',
+    'tuto.s1_p':'ISOWatcher supporte deux modes pour trouver et télécharger les ISOs :',
+    'tuto.s1_row1_desc':'Scraping d\'une page + URL de téléchargement avec placeholder <code>{version}</code>',
+    'tuto.s1_row1_use':'Linux, BSD, tout OS avec FTP public',
+    'tuto.s1_row2_desc':'Navigation automatique sur files.rg-adguard.net via UUID',
+    'tuto.s1_row2_use':'Windows uniquement (Server, 10, 11)',
+    'tuto.s2_h':'Ajouter une distribution Linux (mode Direct)',
+    'tuto.s2_p':'Pour chaque distribution, vous avez besoin de 3 informations :',
+    'tuto.s2_footer':'Le placeholder <code>{version}</code> sera remplacé automatiquement par la version détectée.',
+    'tuto.s3_h':"Exemples de configurations prêtes à l'emploi",
+    'tuto.s4_h':'Ajouter une source Windows (mode rg-adguard)',
+    'tuto.s4_p':'Dans le formulaire d\'ajout, sélectionnez <strong>Source : rg-adguard</strong>, puis choisissez le slug dans la liste :',
+    'tuto.s4_footer':'Les checksums SHA-256 et MD5 sont récupérés et vérifiés automatiquement depuis la page rg-adguard.',
+    'tuto.s5_h':'Tester votre configuration','tuto.s5_p':"Après avoir ajouté une distribution :",
+    'tuto.s5_li1':'Allez dans <strong style="color:var(--text);">Distributions</strong>',
+    'tuto.s5_li2':'Cliquez sur <strong style="color:var(--text);">⟳ Check</strong> sur votre nouvelle distro',
+    'tuto.s5_li3':'Une notification indique la version détectée',
+    'tuto.s5_li4':'Si la version est correcte, cliquez <strong style="color:var(--text);">↓ Manuel</strong> pour tester un téléchargement',
+    'tuto.s5_li5':'Suivez la progression dans <strong style="color:var(--text);">En cours</strong>',
+    'tuto.s6_h':"Trouver l'URL de téléchargement pour n'importe quelle distro",
+    'tuto.s6_p':'Méthode universelle pour trouver les bonnes URLs :',
+    'tuto.s6_li1':'Allez sur la page de téléchargement officielle de la distro',
+    'tuto.s6_li2':"Clic droit sur le lien de téléchargement de l'ISO → <em>Copier l'adresse du lien</em>",
+    'tuto.s6_li3':'Repérez le numéro de version dans l\'URL → c\'est votre placeholder <code style="color:var(--accent)">{version}</code>',
+    'tuto.s6_li4':'Remplacez le numéro par <code style="color:var(--accent)">{version}</code> pour obtenir le template',
+    'tuto.s6_li5':'Pour l\'URL de vérification, prenez la page qui <em>liste</em> les versions (souvent le répertoire parent sur le FTP)',
+    'tuto.s6_example':'Exemple : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">24.04</strong>-server.iso</code> → template : <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">{version}</strong>-server.iso</code>',
+
+    'logs.title':'Logs','logs.subtitle':'Historique des opérations',
+
+    'settings.title':'Paramètres','settings.subtitle':'Scheduler et notifications','settings.planning':'⏱ Planification',
+    'settings.frequency':'Fréquence','settings.daily':'Quotidienne','settings.weekly':'Hebdomadaire','settings.monthly':'Mensuelle',
+    'settings.hour':'Heure (0–23)','settings.day':'Jour','settings.minute':'Minute (0–59)',
+    'settings.discord':'🔔 Notifications Discord','settings.webhook_url':'Webhook URL','settings.test':'🔔 Tester',
+    'day.mon':'Lundi','day.tue':'Mardi','day.wed':'Mercredi','day.thu':'Jeudi','day.fri':'Vendredi','day.sat':'Samedi','day.sun':'Dimanche',
+
+    'modal.add_distro':'Ajouter une distribution','modal.display_name':'Nom affiché','modal.slug':'Slug (identifiant unique)',
+    'modal.other':'Autre','modal.direct_url':'Direct (URL)','modal.rg_source':'◈ Source rg-adguard',
+    'modal.rg_auto_checksum':'Les checksums sont récupérés automatiquement.','modal.windows_os':'OS Windows',
+    'modal.arch':'Architecture','modal.check_url':'URL de vérification de version',
+    'modal.regex_pattern':'Regex pattern (groupe 1 = version)','modal.regex_pattern_short':'Regex pattern',
+    'modal.url_template':'Template URL de téléchargement','modal.placeholder_hint':'Utiliser <code>{version}</code> comme placeholder',
+    'modal.add_btn':'Ajouter','modal.edit_distro':'Modifier la distribution',
+    'modal.rg_edit_only_name':'Cette distribution utilise rg-adguard. Seul le nom peut être modifié.',
+    'modal.manual_dl':'Téléchargement manuel','modal.direct_iso_url':'URL directe (.iso)',
+    'modal.assign_distro':'Assigner une distribution','modal.existing_category':'Catégorie existante',
+    'modal.new_category':'+ Créer une catégorie','modal.new_cat_title':'◈ Nouvelle catégorie',
+    'modal.new_cat_body':"Elle sera créée puis utilisée pour cette ISO. Vous pourrez ensuite configurer la détection automatique depuis l'onglet Distributions.",
+    'modal.slug_short':'Slug (identifiant)','modal.this_iso_version':'Version de cette ISO',
+    'modal.sha256_note':'Le SHA-256 sera calculé après validation.','modal.assign_btn':'✓ Assigner',
+    'modal.dl_archive':"Télécharger l'archive",'modal.dl_url':'URL de téléchargement',
+    'modal.dl_url_hint':"Vous pouvez modifier l'URL si l'automatique ne correspond pas.",
+
+    'common.cancel':'Annuler','common.save':'Sauvegarder','common.download':'Télécharger','common.ignore':'Ignorer',
+
+    'th.name':'Nom','th.type':'Type','th.source':'Source','th.last_version':'Dernière version','th.checked':'Vérifié',
+    'th.status':'Statut','th.actions':'Actions','th.distro':'Distribution','th.version':'Version','th.file':'Fichier',
+    'th.size':'Taille','th.downloaded_at':'Téléchargé le','th.note':'Note','th.description':'Description',
+
+    'badge.active':'Actif','badge.paused':'Pausé','badge.never':'Jamais',
+    'badge.direct':'Direct','badge.manual':'Manuel','badge.archive':'Archive',
+    'empty.no_activity':'Aucune activité','empty.no_download':'Aucun téléchargement actif',
+  },
+  en: {
+    'nav.main':'Main','nav.dashboard':'Dashboard','nav.distros':'Distributions','nav.library':'Library',
+    'nav.downloads_section':'Downloads','nav.downloads':'In progress','nav.archive':'FTP Archives',
+    'nav.tools':'Tools','nav.proxmox':'Proxmox sync','nav.scan':'Local scan','nav.tuto':'Setup guide',
+    'nav.logs':'Logs','nav.settings':'Settings','scheduler.active':'Scheduler active',
+
+    'dashboard.title':'Dashboard','dashboard.subtitle':'Overview of your ISO library',
+    'dashboard.check_now':'↻ Check now','dashboard.stat_isos':'Stored ISOs','dashboard.stat_isos_sub':'all versions',
+    'dashboard.stat_size':'Space used','dashboard.stat_size_sub':'gigabytes','dashboard.stat_distros':'Watched distros',
+    'dashboard.stat_distros_sub':'active','dashboard.stat_active':'In progress','dashboard.stat_active_sub':'downloads',
+    'dashboard.active_dl':'⬇ Active downloads','dashboard.recent_activity':'≡ Recent activity',
+    'dashboard.monitored':'◈ Monitored distributions',
+
+    'distros.title':'Distributions','distros.subtitle':'Manage watched distributions','distros.add':'+ Add',
+    'distros.check_all':'↻ Check all','distros.edit_hint':'Click ✏ to edit an entry',
+
+    'library.title':'ISO Library','library.subtitle':'All downloaded ISOs',
+    'downloads.title':'Downloads','downloads.subtitle':'Real-time progress',
+
+    'archive.title':'FTP Archives','archive.subtitle':'Download historical versions from official FTP servers',
+    'archive.info_title':'ℹ Official archives',
+    'archive.info_body':"These links point directly to the distributions' official FTP servers. Select a distribution, pick the version you want, and start the download. ISOs will be stored in your library like any other ISO.",
+    'archive.default_title':'Debian — Available versions',
+
+    'proxmox.title':'Proxmox Sync','proxmox.subtitle':'Sync via SSH → bash script on Unraid',
+    'proxmox.test_ssh':'🔌 Test SSH','proxmox.repair_db':'🔧 Repair DB','proxmox.sync':'↻ Sync',
+    'proxmox.info_title':'ℹ SSH architecture',
+    'proxmox.info_body':"Since everything sits on CIFS/SMB, symlinks can't be created from Docker (Errno 95). ISOWatcher triggers <code>sync_symlinks.sh</code> <strong>directly on Unraid via SSH</strong>. Unraid creates the links on its native XFS filesystem → Proxmox sees them through its CIFS mount.",
+    'proxmox.ssh_config':'🔑 SSH configuration (connection to Unraid)','proxmox.ssh_host':'Unraid IP / Hostname',
+    'proxmox.ssh_user':'SSH user','proxmox.ssh_port':'SSH port','proxmox.ssh_key':'Private key path (inside container)',
+    'proxmox.ssh_script':'Script path on Unraid','proxmox.ssh_source':'ISO source folder (Unraid)',
+    'proxmox.ssh_dest':'proxmox-view destination folder (Unraid)','proxmox.gen_key':'🔑 Generate SSH key',
+    'proxmox.pubkey_title':'✓ Public key generated',
+    'proxmox.pubkey_body':'Copy this key into <code>/root/.ssh/authorized_keys</code> on Unraid:',
+    'proxmox.quick_cmd':'Quick command:','proxmox.pve_config':'Proxmox configuration',
+    'proxmox.pve_verify':'Check: <code>pvesm list isowatcher</code> — Reload: <code>systemctl reload pvedaemon</code>',
+    'proxmox.last_report':'📊 Last sync report','proxmox.content_title':'🔗 proxmox-view content (local)',
+
+    'scan.title':'Local scan','scan.subtitle':'Analyze and import ISOs already present on storage',
+    'scan.start':'⟳ Start scan','scan.info_title':'ℹ How the scan works',
+    'scan.info_body':"<strong>ℹ How the scan works</strong><br>The scan recursively walks the <code>/data/isos</code> folder looking for <code>.iso</code> files. Each file is analyzed: recognized ISOs are imported automatically with their SHA-256 checksum. <strong>Modified</strong> files (different size) are flagged without overwriting existing data. <strong>Unidentified</strong> files are presented to you for manual assignment.",
+    'scan.in_progress':'Scanning…','scan.total':'Total','scan.imported':'Imported','scan.modified':'Modified',
+    'scan.known':'Already known','scan.unidentified':'Unidentified',
+    'scan.unid_title':'⚠ Unidentified files — manual assignment required',
+    'scan.unid_body':"These ISOs could not be automatically recognized from their filename. Assign them a distribution and version, or ignore them.",
+    'scan.report_title':'Scan report','scan.filter_all':'All',
+    'scan.initial_text':'Click <strong>Start scan</strong> to analyze your local library',
+    'scan.initial_sub':'The scan is non-destructive and can be run at any time',
+
+    'tuto.title':'Setup guide','tuto.subtitle':'How to add and configure a new distribution',
+    'tuto.mode':'Mode','tuto.when_use':'When to use it','tuto.field':'Field','tuto.example_fedora':'Example (Fedora)',
+    'tuto.check_url':'Check URL','tuto.check_url_desc':'Page containing the version number',
+    'tuto.regex_pattern':'Regex pattern','tuto.regex_desc':'Expression to extract the version (group 1)',
+    'tuto.url_template':'URL template','tuto.url_template_desc':'Download URL with <code>{version}</code>',
+    'tuto.s1_h':'Understanding the two source types',
+    'tuto.s1_p':'ISOWatcher supports two modes for finding and downloading ISOs:',
+    'tuto.s1_row1_desc':'Scraping a page + download URL with a <code>{version}</code> placeholder',
+    'tuto.s1_row1_use':'Linux, BSD, any OS with a public FTP',
+    'tuto.s1_row2_desc':'Automatic navigation on files.rg-adguard.net via UUID',
+    'tuto.s1_row2_use':'Windows only (Server, 10, 11)',
+    'tuto.s2_h':'Adding a Linux distribution (Direct mode)',
+    'tuto.s2_p':'Each distribution needs 3 pieces of information:',
+    'tuto.s2_footer':'The <code>{version}</code> placeholder is replaced automatically with the detected version.',
+    'tuto.s3_h':'Ready-to-use configuration examples',
+    'tuto.s4_h':'Adding a Windows source (rg-adguard mode)',
+    'tuto.s4_p':'In the add form, select <strong>Source: rg-adguard</strong>, then choose the slug from the list:',
+    'tuto.s4_footer':'SHA-256 and MD5 checksums are automatically fetched and verified from the rg-adguard page.',
+    'tuto.s5_h':'Testing your configuration','tuto.s5_p':'After adding a distribution:',
+    'tuto.s5_li1':'Go to <strong style="color:var(--text);">Distributions</strong>',
+    'tuto.s5_li2':'Click <strong style="color:var(--text);">⟳ Check</strong> on your new distro',
+    'tuto.s5_li3':'A notification shows the detected version',
+    'tuto.s5_li4':'If the version looks right, click <strong style="color:var(--text);">↓ Manual</strong> to test a download',
+    'tuto.s5_li5':'Follow the progress in <strong style="color:var(--text);">In progress</strong>',
+    'tuto.s6_h':'Finding the download URL for any distro',
+    'tuto.s6_p':'Universal method for finding the right URLs:',
+    'tuto.s6_li1':"Go to the distro's official download page",
+    'tuto.s6_li2':'Right-click the ISO download link → <em>Copy link address</em>',
+    'tuto.s6_li3':'Spot the version number in the URL → that\'s your <code style="color:var(--accent)">{version}</code> placeholder',
+    'tuto.s6_li4':'Replace the number with <code style="color:var(--accent)">{version}</code> to get the template',
+    'tuto.s6_li5':'For the check URL, use the page that <em>lists</em> the versions (often the parent FTP directory)',
+    'tuto.s6_example':'Example: <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">24.04</strong>-server.iso</code> → template: <code>https://example.com/iso/ubuntu-<strong style="color:var(--accent)">{version}</strong>-server.iso</code>',
+
+    'logs.title':'Logs','logs.subtitle':'Operation history',
+
+    'settings.title':'Settings','settings.subtitle':'Scheduler and notifications','settings.planning':'⏱ Scheduling',
+    'settings.frequency':'Frequency','settings.daily':'Daily','settings.weekly':'Weekly','settings.monthly':'Monthly',
+    'settings.hour':'Hour (0–23)','settings.day':'Day','settings.minute':'Minute (0–59)',
+    'settings.discord':'🔔 Discord notifications','settings.webhook_url':'Webhook URL','settings.test':'🔔 Test',
+    'day.mon':'Monday','day.tue':'Tuesday','day.wed':'Wednesday','day.thu':'Thursday','day.fri':'Friday','day.sat':'Saturday','day.sun':'Sunday',
+
+    'modal.add_distro':'Add a distribution','modal.display_name':'Display name','modal.slug':'Slug (unique id)',
+    'modal.other':'Other','modal.direct_url':'Direct (URL)','modal.rg_source':'◈ rg-adguard source',
+    'modal.rg_auto_checksum':'Checksums are fetched automatically.','modal.windows_os':'Windows OS',
+    'modal.arch':'Architecture','modal.check_url':'Version check URL',
+    'modal.regex_pattern':'Regex pattern (group 1 = version)','modal.regex_pattern_short':'Regex pattern',
+    'modal.url_template':'Download URL template','modal.placeholder_hint':'Use <code>{version}</code> as a placeholder',
+    'modal.add_btn':'Add','modal.edit_distro':'Edit distribution',
+    'modal.rg_edit_only_name':'This distribution uses rg-adguard. Only the name can be edited.',
+    'modal.manual_dl':'Manual download','modal.direct_iso_url':'Direct URL (.iso)',
+    'modal.assign_distro':'Assign a distribution','modal.existing_category':'Existing category',
+    'modal.new_category':'+ Create a category','modal.new_cat_title':'◈ New category',
+    'modal.new_cat_body':'It will be created and then used for this ISO. You can configure auto-detection from the Distributions tab afterwards.',
+    'modal.slug_short':'Slug (id)','modal.this_iso_version':'Version of this ISO',
+    'modal.sha256_note':'SHA-256 will be computed after confirming.','modal.assign_btn':'✓ Assign',
+    'modal.dl_archive':'Download archive','modal.dl_url':'Download URL',
+    'modal.dl_url_hint':'You can edit the URL if the automatic one is wrong.',
+
+    'common.cancel':'Cancel','common.save':'Save','common.download':'Download','common.ignore':'Ignore',
+
+    'th.name':'Name','th.type':'Type','th.source':'Source','th.last_version':'Latest version','th.checked':'Checked',
+    'th.status':'Status','th.actions':'Actions','th.distro':'Distribution','th.version':'Version','th.file':'File',
+    'th.size':'Size','th.downloaded_at':'Downloaded on','th.note':'Note','th.description':'Description',
+
+    'badge.active':'Active','badge.paused':'Paused','badge.never':'Never',
+    'badge.direct':'Direct','badge.manual':'Manual','badge.archive':'Archive',
+    'empty.no_activity':'No activity','empty.no_download':'No active download',
+  }
+};
+
+let currentLang = localStorage.getItem('isowatcher_lang') || 'fr';
+
+function t(key) {
+  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.fr[key]) || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (val.includes('<')) el.innerHTML = val;
+    else el.textContent = val;
+  });
+  document.getElementById('lang-fr').classList.toggle('active', currentLang === 'fr');
+  document.getElementById('lang-en').classList.toggle('active', currentLang === 'en');
+  document.documentElement.lang = currentLang;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('isowatcher_lang', lang);
+  applyI18n();
+  // Re-render le contenu dynamique actuellement affiché pour appliquer la langue
+  const activeId = document.querySelector('.page.active')?.id;
+  const rerender = {
+    'page-dashboard': loadDashboard, 'page-distros': loadDistros, 'page-library': loadLibrary,
+    'page-downloads': loadDownloads, 'page-archive': () => loadArchive(currentArchiveKey),
+    'page-proxmox': loadProxmox, 'page-logs': loadLogs, 'page-settings': loadSettings,
+  };
+  if (activeId && rerender[activeId]) rerender[activeId]();
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  State
 // ══════════════════════════════════════════════════════════════════════════════
@@ -682,7 +1064,7 @@ function showPage(name) {
   document.getElementById('nav-' + name).classList.add('active');
   const loaders = {dashboard:loadDashboard,distros:loadDistros,library:loadLibrary,
     downloads:loadDownloads,archive:()=>loadArchive(currentArchiveKey),
-    scan: ()=>{ /* page scan : pas de chargement initial, juste afficher l'état */ if(scan_state_cached) updateScanUI(scan_state_cached); },
+    proxmox:loadProxmox,
     logs:loadLogs,settings:loadSettings};
   if (loaders[name]) loaders[name]();
 }
@@ -725,7 +1107,7 @@ async function loadDashboard() {
   const active = Object.entries(progress).filter(([,p])=>p.status==='downloading');
   const dlEl = document.getElementById('dash-downloads');
   dlEl.innerHTML = active.length === 0
-    ? '<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement actif</div></div>'
+    ? `<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">${t('empty.no_download')}</div></div>`
     : active.map(([,p])=>`
       <div class="download-item">
         <div class="download-info"><span><strong>${p.distro}</strong> <span class="version-tag">${p.version}</span></span><span style="font-size:11px;color:var(--muted)">${p.downloaded||'0'} / ${p.size||'?'}</span></div>
@@ -740,7 +1122,7 @@ async function loadDashboard() {
       <div class="log-status ${l.status}"></div>
       <div class="log-time">${fmt(l.created_at)}</div>
       <div class="log-msg">${l.distro_name||'—'} — ${l.message}</div>
-    </div>`).join('') || '<div class="empty"><div class="empty-text">Aucune activité</div></div>';
+    </div>`).join('') || `<div class="empty"><div class="empty-text">${t('empty.no_activity')}</div></div>`;
 
   // Distros table
   const dEl = document.getElementById('dash-distros');
@@ -769,9 +1151,9 @@ async function loadDistros() {
       <td><span class="badge badge-${d.type}">${d.type}</span></td>
       <td>${srcBadge(d.source)}</td>
       <td>${d.latest_version?`<span class="version-tag" title="${d.latest_version}">${trunc(d.latest_version,28)}</span>`:'—'}</td>
-      <td style="color:var(--muted);font-size:11px">${d.last_checked?fmt(d.last_checked):'Jamais'}</td>
+      <td style="color:var(--muted);font-size:11px">${d.last_checked?fmt(d.last_checked):t('badge.never')}</td>
       <td><span class="chip">${d.iso_count||0}</span></td>
-      <td><span class="badge badge-${d.enabled?'enabled':'disabled'}">${d.enabled?'Actif':'Pausé'}</span></td>
+      <td><span class="badge badge-${d.enabled?'enabled':'disabled'}">${d.enabled?t('badge.active'):t('badge.paused')}</span></td>
       <td><div style="display:flex;gap:5px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" onclick="checkVersion(${d.id})" title="Vérifier version">⟳</button>
         <button class="btn btn-secondary btn-sm" onclick="openEditDistro(${d.id})" title="Modifier">✏</button>
@@ -918,7 +1300,7 @@ async function loadDownloads() {
   const entries  = Object.entries(progress);
   const el = document.getElementById('downloads-list');
   if (!entries.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">Aucun téléchargement actif</div></div>';
+    el.innerHTML = `<div class="empty"><div class="empty-icon">☁</div><div class="empty-text">${t('empty.no_download')}</div></div>`;
     return;
   }
   el.innerHTML = entries.map(([,p])=>`
@@ -938,7 +1320,133 @@ async function loadDownloads() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  Archive FTP
+//  Proxmox Sync — SSH
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadProxmox() {
+  const [s, cfg] = await Promise.all([
+    api('GET', '/symlinks/status'),
+    api('GET', '/settings'),
+  ]);
+
+  // Remplir les champs SSH
+  document.getElementById('ssh-host').value        = cfg.ssh_host        || '';
+  document.getElementById('ssh-user').value        = cfg.ssh_user        || 'root';
+  document.getElementById('ssh-port').value        = cfg.ssh_port        || '22';
+  document.getElementById('ssh-key-path').value    = cfg.ssh_key_path    || '/data/ssh/id_rsa';
+  document.getElementById('ssh-script-path').value = cfg.ssh_script_path || '';
+  document.getElementById('ssh-source-dir').value  = cfg.ssh_source_dir  || '';
+  document.getElementById('ssh-dest-dir').value    = cfg.ssh_dest_dir    || '';
+
+  // Badge SSH
+  const badge = document.getElementById('ssh-status-badge');
+  badge.innerHTML = s.ssh_configured
+    ? `<span class="badge badge-enabled">✓ SSH configuré (${s.ssh_host})</span>`
+    : `<span class="badge badge-disabled">SSH non configuré</span>`;
+
+  // Stats
+  document.getElementById('sym-count').textContent = `${s.total_symlinks} fichier(s)`;
+  document.getElementById('symlinks-stats').innerHTML = `
+    <div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--text)">${s.total_isos}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">ISOs biblio</div></div>
+    <div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">${s.total_symlinks}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Dans proxmox-view</div></div>
+    ${s.missing_in_db>0?`<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--yellow)">${s.missing_in_db}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Manquants</div></div>`:''}`;
+
+  // Liste
+  const list = document.getElementById('symlinks-list');
+  if (!s.symlinks.length) {
+    list.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-text">proxmox-view vide ou inaccessible</div></div>';
+  } else {
+    list.innerHTML = `<table>
+      <thead><tr><th>Fichier ISO</th><th>Taille</th><th>Type</th></tr></thead>
+      <tbody>${s.symlinks.map(f=>`
+        <tr>
+          <td style="font-size:11px">${f.name}</td>
+          <td style="font-size:11px;color:var(--muted)">${f.size_gb} GB</td>
+          <td>${f.is_symlink?'<span class="badge badge-enabled">symlink</span>':'<span class="badge badge-direct">fichier</span>'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+}
+
+async function saveSSHConfig() {
+  const payload = {
+    ssh_host:        document.getElementById('ssh-host').value.trim(),
+    ssh_user:        document.getElementById('ssh-user').value.trim() || 'root',
+    ssh_port:        document.getElementById('ssh-port').value.trim() || '22',
+    ssh_key_path:    document.getElementById('ssh-key-path').value.trim(),
+    ssh_script_path: document.getElementById('ssh-script-path').value.trim(),
+    ssh_source_dir:  document.getElementById('ssh-source-dir').value.trim(),
+    ssh_dest_dir:    document.getElementById('ssh-dest-dir').value.trim(),
+  };
+  await api('PUT', '/symlinks/config', payload);
+  toast('Configuration SSH sauvegardée !');
+  loadProxmox();
+}
+
+async function testSSH() {
+  toast('Test de connexion SSH…', 'info');
+  const r = await api('POST', '/symlinks/test-ssh');
+  toast(r.message, r.ok ? 'success' : 'error');
+}
+
+async function generateSSHKey() {
+  toast('Génération de la clé SSH…', 'info');
+  const r = await api('POST', '/symlinks/generate-key');
+  if (r.ok) {
+    document.getElementById('ssh-pubkey-box').style.display  = 'block';
+    document.getElementById('ssh-pubkey-text').value         = r.public_key;
+    toast(`Clé générée dans ${r.key_path}`);
+  } else {
+    toast('Erreur génération clé : ' + r.public_key, 'error');
+  }
+}
+
+async function syncSymlinks() {
+  const btn = document.querySelector('#page-proxmox .btn-primary');
+  btn.textContent = '⟳ Sync…'; btn.disabled = true;
+  toast('Déclenchement du script sur Unraid via SSH…', 'info');
+  try {
+    const r = await api('POST', '/symlinks/sync');
+    document.getElementById('sync-report-card').style.display = 'block';
+    const ok = !r.error;
+    let html = '';
+    if (r.error) {
+      html = `<div style="color:var(--red);background:rgba(255,61,113,.05);border:1px solid rgba(255,61,113,.2);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap">${r.error}</div>`;
+      if (r.stdout) html += `<pre style="margin-top:8px;font-size:11px;color:var(--muted);max-height:200px;overflow-y:auto">${r.stdout}</pre>`;
+    } else {
+      html = `<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px">
+        <span style="color:var(--green)">✓ ${r.created||0} créés</span>
+        <span style="color:var(--accent)">↻ ${r.updated||0} mis à jour</span>
+        <span style="color:var(--muted)">= ${r.skipped||0} ignorés</span>
+        <span style="color:var(--yellow)">× ${r.removed||0} orphelins</span>
+        ${r.conflicts?`<span style="color:var(--yellow)">⚠ ${r.conflicts} conflits de noms</span>`:''}
+      </div>`;
+      if (r.stdout) {
+        html += `<details style="margin-top:10px"><summary style="font-size:11px;color:var(--muted);cursor:pointer">Voir le log complet</summary>
+          <pre style="font-size:10px;color:var(--muted);max-height:300px;overflow-y:auto;margin-top:6px;padding:10px;background:var(--bg);border-radius:6px">${r.stdout}</pre></details>`;
+      }
+    }
+    document.getElementById('sync-report-content').innerHTML = html;
+    toast(ok ? `Sync OK — ${r.created} créés, ${r.skipped} ignorés` : 'Erreur SSH — voir le rapport', ok?'success':'error');
+  } catch(e) {
+    toast('Erreur : '+e.message, 'error');
+  } finally {
+    btn.textContent = '↻ Synchroniser'; btn.disabled = false;
+    setTimeout(loadProxmox, 1000);
+  }
+}
+
+async function repairPaths() {
+  toast('Réparation des chemins DB…', 'info');
+  const r = await api('POST', '/symlinks/repair');
+  toast(`${r.fixed} chemin(s) corrigé(s), ${r.missing_marked} manquant(s).`, r.fixed>0?'success':'info');
+  loadProxmox();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Archive FTP (avec résolution URL dynamique)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Archive FTP (avec résolution URL dynamique)
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadArchive(key) {
   currentArchiveKey = key;
@@ -949,7 +1457,7 @@ async function loadArchive(key) {
   const grid = document.getElementById('archive-grid');
   grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px">Chargement des versions depuis le FTP officiel…</div>';
   try {
-    const data = await api('GET', `/archive/${key}?limit=30`);
+    const data = await api('GET', `/archive/${key}?limit=50`);
     archiveData[key] = data;
     document.getElementById('archive-title').textContent = `${data.name} — ${data.versions.length} versions disponibles`;
     document.getElementById('archive-ftp-link').innerHTML = `FTP officiel : <a href="${data.ftp_index}" target="_blank" style="color:var(--accent)">${data.ftp_index}</a>`;
@@ -969,16 +1477,32 @@ async function loadArchive(key) {
   }
 }
 
-function openArchiveDl(key, version) {
+async function openArchiveDl(key, version) {
   const data = archiveData[key];
   if (!data) return;
-  const url = data.url_template.replace(/{version}/g, version);
-  pendingArchive = {key, version, url};
+  pendingArchive = {key, version, url: null};
+
   document.getElementById('archive-dl-title').textContent = `Télécharger ${data.name} ${version}`;
   document.getElementById('archive-dl-info').innerHTML =
-    `<strong>${data.name}</strong> version <code>${version}</code><br>Source : <a href="${data.ftp_index}" target="_blank" style="color:var(--accent)">${data.ftp_index}</a>`;
-  document.getElementById('archive-dl-url').value = url;
+    `<strong>${data.name}</strong> version <code>${version}</code> — Résolution de l'URL en cours…`;
+  document.getElementById('archive-dl-url').value = 'Chargement…';
   document.getElementById('modal-archive-dl').classList.add('open');
+
+  // Résoudre l'URL réelle via l'API (scraping index Fedora, calcul Debian/Ubuntu/Arch)
+  try {
+    const r = await api('GET', `/archive/${key}/${encodeURIComponent(version)}/url`);
+    pendingArchive.url = r.url;
+    document.getElementById('archive-dl-url').value = r.url;
+    document.getElementById('archive-dl-info').innerHTML =
+      `<strong>${data.name}</strong> version <code>${version}</code><br>
+       Source : <a href="${data.ftp_index}" target="_blank" style="color:var(--accent)">${data.ftp_index}</a>`;
+  } catch(e) {
+    document.getElementById('archive-dl-url').value = '';
+    document.getElementById('archive-dl-info').innerHTML =
+      `<span style="color:var(--red)">⚠ URL non résolue automatiquement pour ${data.name} ${version}.<br>
+       Vous pouvez entrer l'URL manuellement.</span>`;
+    toast(`URL non résolue pour ${version} — entrez-la manuellement`, 'error');
+  }
 }
 
 async function confirmArchiveDownload() {
@@ -1099,9 +1623,9 @@ function fmt(d) {
 function trunc(s, n) { return s && s.length > n ? s.substring(0,n)+'…' : (s||''); }
 function srcBadge(src) {
   if (src==='rg-adguard') return '<span class="badge badge-rg">rg-adguard</span>';
-  if (src==='archive')    return '<span class="badge badge-archive">Archive</span>';
-  if (src==='manual')     return '<span class="badge badge-manual">Manuel</span>';
-  return '<span class="badge badge-direct">Direct</span>';
+  if (src==='archive')    return `<span class="badge badge-archive">${t('badge.archive')}</span>`;
+  if (src==='manual')     return `<span class="badge badge-manual">${t('badge.manual')}</span>`;
+  return `<span class="badge badge-direct">${t('badge.direct')}</span>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1109,7 +1633,7 @@ function srcBadge(src) {
 // ══════════════════════════════════════════════════════════════════════════════
 let scanPollTimer  = null;
 let fullScanReport = [];
-let currentAssignFilepath = null;
+let assignMode     = 'existing'; // 'existing' | 'new'
 
 async function startScan() {
   const btn = document.getElementById('scan-btn');
@@ -1212,42 +1736,90 @@ function renderUnidentifiedList(list) {
 }
 
 async function openAssignModal(filepath, filename, sizeGb) {
-  currentAssignFilepath = filepath;
   document.getElementById('assign-filepath').value  = filepath;
   document.getElementById('assign-version').value   = '';
   document.getElementById('assign-fileinfo').innerHTML =
     `<strong>${filename}</strong><br><span style="color:var(--muted);font-size:11px">${filepath} — ${sizeGb} GB</span>`;
 
-  // Charger la liste des distros
+  // Auto-suggestion de version depuis le nom de fichier
+  const vmatch = filename.match(/[\-_](\d[\d\.]+)[\-_\.]/);
+  document.getElementById('assign-version').value  = vmatch ? vmatch[1] : '';
+  document.getElementById('new-cat-version').value = vmatch ? vmatch[1] : '';
+  document.getElementById('new-cat-name').value = '';
+  document.getElementById('new-cat-slug').value = '';
+
+  // Charger la liste des distros pour l'onglet "existante"
   const distros = await api('GET', '/distros');
-  const sel = document.getElementById('assign-distro-id');
-  sel.innerHTML = distros.map(d =>
+  document.getElementById('assign-distro-id').innerHTML = distros.map(d =>
     `<option value="${d.id}">${d.name} (${d.slug})</option>`
   ).join('');
 
+  assignTab('existing');
   document.getElementById('modal-assign').classList.add('open');
 }
 
-async function confirmAssign() {
-  const filepath  = document.getElementById('assign-filepath').value;
-  const distro_id = parseInt(document.getElementById('assign-distro-id').value);
-  const version   = document.getElementById('assign-version').value.trim();
-  if (!version) { toast('La version est requise', 'error'); return; }
+function assignTab(tab) {
+  assignMode = tab;
+  document.getElementById('assign-panel-existing').style.display = tab === 'existing' ? 'block' : 'none';
+  document.getElementById('assign-panel-new').style.display      = tab === 'new'      ? 'block' : 'none';
+  document.getElementById('assign-tab-existing').className = 'btn btn-sm ' + (tab === 'existing' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('assign-tab-new').className      = 'btn btn-sm ' + (tab === 'new'      ? 'btn-primary' : 'btn-secondary');
+}
 
-  const btn = document.querySelector('#modal-assign .btn-primary');
+function autoSlug() {
+  const name = document.getElementById('new-cat-name').value;
+  document.getElementById('new-cat-slug').value = name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+async function confirmAssign() {
+  const filepath = document.getElementById('assign-filepath').value;
+  const btn = document.getElementById('assign-confirm-btn');
   btn.textContent = '⟳ Calcul checksum…';
   btn.disabled    = true;
 
   try {
-    const r = await api('POST', '/scan/assign', {filepath, distro_id, version});
+    let distro_id, version;
+
+    if (assignMode === 'new') {
+      // 1. Créer la catégorie
+      const catPayload = {
+        name: document.getElementById('new-cat-name').value.trim(),
+        slug: document.getElementById('new-cat-slug').value.trim(),
+        type: document.getElementById('new-cat-type').value,
+        arch: document.getElementById('new-cat-arch').value,
+      };
+      if (!catPayload.name || !catPayload.slug) {
+        toast('Nom et slug requis pour la nouvelle catégorie', 'error');
+        return;
+      }
+      const cat = await api('POST', '/scan/create-category', catPayload);
+      if (cat.status === 'existing') {
+        toast(`Catégorie existante réutilisée : ${cat.name}`, 'info');
+      } else {
+        toast(`Catégorie créée : ${cat.name}`, 'success');
+      }
+      distro_id = cat.id;
+      version   = document.getElementById('new-cat-version').value.trim() || 'unknown';
+    } else {
+      distro_id = parseInt(document.getElementById('assign-distro-id').value);
+      version   = document.getElementById('assign-version').value.trim();
+      if (!version) { toast('La version est requise', 'error'); return; }
+    }
+
+    const r = await api('POST', '/scan/assign', { filepath, distro_id, version });
     toast(`Assigné ! SHA-256: ${r.sha256.substr(0,16)}… (${r.size_gb} GB)`);
     closeModal('modal-assign');
+
     // Rafraîchir l'état du scan
     const s = await api('GET', '/scan/status');
     renderUnidentifiedList(s.unidentified || []);
     fullScanReport = s.results || [];
     renderReport(fullScanReport, 'all');
     updateScanUI(s);
+    // Si une nouvelle catégorie a été créée, rafraîchir aussi la liste des distros
+    if (assignMode === 'new') loadDistros();
   } catch(e) {
     toast('Erreur : ' + e.message, 'error');
   } finally {
@@ -1315,9 +1887,8 @@ function filterReport(f) { renderReport(fullScanReport, f); }
 function escJs(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  Auto-refresh (ajout scan)
+//  Auto-refresh
 // ══════════════════════════════════════════════════════════════════════════════
-let scan_state_cached = null;
 setInterval(()=>{
   const id = document.querySelector('.page.active')?.id;
   if (id==='page-dashboard') loadDashboard();
@@ -1327,6 +1898,7 @@ setInterval(()=>{
 // ══════════════════════════════════════════════════════════════════════════════
 //  Init
 // ══════════════════════════════════════════════════════════════════════════════
+applyI18n();
 loadDashboard();
 loadArchive('debian');
 </script>
